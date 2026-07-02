@@ -1,0 +1,31 @@
+.accentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.accentLabel {
+  font-size: var(--text-s);
+}
+
+.accents {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.accentDot {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: transform var(--dur-quick) var(--ease);
+}
+
+.accentOn {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  transform: scale(1.05);
+}

@@ -1,0 +1,85 @@
+.controls {
+  width: min(100%, 33rem);
+  margin-inline: auto;
+  padding-inline: var(--space-3);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-m);
+  color: var(--ink-soft);
+  transition:
+    color var(--dur-quick) var(--ease),
+    background var(--dur-quick) var(--ease);
+}
+
+.button span {
+  font-size: var(--text-2xs);
+  line-height: 1;
+}
+
+.button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.button:not(:disabled):active {
+  background: var(--peer-bg);
+}
+
+.active {
+  color: var(--accent);
+  background: var(--peer-bg);
+}
+
+/* Submode fades in above the toolbar only while the pencil is on;
+   its space stays reserved so the board never jumps. */
+.submode {
+  height: 2.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.segment {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-1);
+  opacity: 0;
+  transform: translateY(0.25rem);
+  pointer-events: none;
+  transition:
+    opacity var(--dur-gentle) var(--ease),
+    transform var(--dur-gentle) var(--ease);
+}
+
+.submodeOpen .segment {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.segment button {
+  font-size: var(--text-xs);
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
+.segmentOn {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--on-accent) !important;
+}

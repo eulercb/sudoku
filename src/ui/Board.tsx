@@ -1,0 +1,124 @@
+import { useCallback, useRef } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useStore } from '../store';
+import { Cell } from './Cell';
+import styles from './Board.module.css';
+import {
+  useActiveDigit,
+  useCenterMasks,
+  useConflicts,
+  usePeerSet,
+  useWrongCells,
+} from './useDerived';
+import { PlayIcon } from './icons';
+
+const cellFromPoint = (x: number, y: number): number | null => {
+  const el = document.elementFromPoint(x, y)?.closest('[data-index]');
+  if (!el) return null;
+  const index = Number((el as HTMLElement).dataset.index);
+  return Number.isInteger(index) ? index : null;
+};
+
+export function Board() {
+  const values = useStore((s) => s.game.cells.values);
+  const corner = useStore((s) => s.game.cells.corner);
+  const givens = useStore((s) => s.game.givens);
+  const selection = useStore((s) => s.game.selection);
+  const checkFlagged = useStore((s) => s.game.checkFlagged);
+  const status = useStore((s) => s.game.status);
+  const highlightSame = useStore((s) => s.settings.highlightSameDigit);
+  const autoCandidates = useStore((s) => s.settings.autoCandidates);
+  const tapCell = useStore((s) => s.tapCell);
+  const selectCell = useStore((s) => s.selectCell);
+  const resume = useStore((s) => s.resume);
+
+  const centerMasks = useCenterMasks();
+  const conflicts = useConflicts();
+  const wrongCells = useWrongCells();
+  const peers = usePeerSet();
+  const activeDigit = useActiveDigit();
+
+  const selectionSet = new Set(selection);
+  const flaggedSet = new Set(checkFlagged);
+  const hidden = status === 'paused' || status === 'idle';
+
+  const drag = useRef<{ pointerId: number; visited: Set<number> } | null>(null);
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (hidden) return;
+      const index = cellFromPoint(e.clientX, e.clientY);
+      if (index === null) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      drag.current = { pointerId: e.pointerId, visited: new Set([index]) };
+      tapCell(index, e.ctrlKey || e.metaKey || e.shiftKey);
+    },
+    [hidden, tapCell],
+  );
+
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const d = drag.current;
+      if (!d || d.pointerId !== e.pointerId) return;
+      const index = cellFromPoint(e.clientX, e.clientY);
+      if (index === null || d.visited.has(index)) return;
+      d.visited.add(index);
+      selectCell(index, 'append');
+    },
+    [selectCell],
+  );
+
+  const endDrag = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (drag.current?.pointerId === e.pointerId) drag.current = null;
+  }, []);
+
+  return (
+    <div className={styles.wrap}>
+      <div
+        role="grid"
+        aria-label="Sudoku board"
+        className={`${styles.board} ${status === 'won' ? styles.won : ''}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        {Array.from({ length: 9 }, (_, r) => (
+          <div key={r} role="row" className={styles.row}>
+            {Array.from({ length: 9 }, (_, c) => {
+              const i = r * 9 + c;
+              const v = values[i]!;
+              return (
+                <Cell
+                  key={c}
+                  index={i}
+                  value={v}
+                  given={givens[i] !== 0}
+                  cornerMask={autoCandidates ? 0 : corner[i]!}
+                  centerMask={centerMasks[i]!}
+                  selected={selectionSet.has(i)}
+                  peer={peers.has(i)}
+                  sameDigit={
+                    highlightSame &&
+                    activeDigit !== null &&
+                    v === activeDigit &&
+                    !selectionSet.has(i)
+                  }
+                  flagged={conflicts.has(i) || wrongCells.has(i) || flaggedSet.has(i)}
+                  hidden={hidden}
+                />
+              );
+            })}
+          </div>
+        ))}
+        <div className={styles.lines} aria-hidden="true" />
+        {status === 'paused' && (
+          <button className={styles.overlay} onClick={resume} aria-label="Resume game">
+            <PlayIcon />
+            <span>Paused</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

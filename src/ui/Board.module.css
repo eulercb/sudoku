@@ -1,0 +1,96 @@
+.wrap {
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--space-3);
+}
+
+.board {
+  position: relative;
+  width: min(100%, 60dvh, 31rem);
+  aspect-ratio: 1;
+  container-type: inline-size;
+
+  display: grid;
+  grid-template-rows: repeat(9, 1fr);
+  gap: 0;
+
+  background: var(--surface);
+  border: 2px solid var(--grid-line-strong);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  border-bottom: 1px solid var(--grid-line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row > * {
+  border-right: 1px solid var(--grid-line);
+}
+
+.row > *:last-child {
+  border-right: none;
+}
+
+/* Heavier box separators drawn as an overlay, always crisp. */
+.lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--grid-line-strong), var(--grid-line-strong)) 33.333% 0 / 1.5px 100%,
+    linear-gradient(var(--grid-line-strong), var(--grid-line-strong)) 66.667% 0 / 1.5px 100%,
+    linear-gradient(var(--grid-line-strong), var(--grid-line-strong)) 0 33.333% / 100% 1.5px,
+    linear-gradient(var(--grid-line-strong), var(--grid-line-strong)) 0 66.667% / 100% 1.5px;
+  background-repeat: no-repeat;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: var(--text-m);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overlay svg {
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+}
+
+/* Quiet win: a soft accent wave sweeps the board once, corner to corner. */
+.won [role='gridcell'] {
+  animation: winwave var(--dur-slow) var(--ease) both;
+  animation-delay: calc(var(--wave, 0) * 36ms);
+}
+
+@keyframes winwave {
+  0% {
+    background: var(--surface);
+  }
+  45% {
+    background: var(--same-bg);
+  }
+  100% {
+    background: var(--surface);
+  }
+}
