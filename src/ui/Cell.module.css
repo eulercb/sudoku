@@ -27,6 +27,11 @@
   color: var(--flag);
 }
 
+/* A flagged cell that is also selected still shows the selection. */
+.selected.flagged {
+  background: color-mix(in oklab, var(--sel-bg) 55%, var(--flag-bg));
+}
+
 .value {
   font-size: 5.6cqw;
   font-weight: 500;

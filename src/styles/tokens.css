@@ -38,18 +38,19 @@
   --accent-base: #5b68c7;
 }
 
+/* Accent bases keep white text ≥ 4.5:1 (WCAG AA) in the light themes. */
 [data-accent='indigo'] {
   --accent-base: #5b68c7;
 }
 
 [data-accent='teal'] {
-  --accent-base: #35897c;
+  --accent-base: #2f7d71;
 }
 
 [data-accent='plum'] {
-  --accent-base: #a1669f;
+  --accent-base: #96588f;
 }
 
 [data-accent='ember'] {
-  --accent-base: #c07a4b;
+  --accent-base: #a5622e;
 }

@@ -60,13 +60,13 @@ test('play: place a digit, pencil a note, undo', async ({ page }) => {
   // Pencil a note into another empty cell.
   const secondEmpty = givens.indexOf(0, emptyIndex + 1);
   const noteDigit = solution[secondEmpty]!;
-  await page.getByRole('button', { name: 'Pencil marks' }).click();
+  await page.getByRole('button', { name: 'Notes, pencil marks' }).click();
   await page.locator(`[data-index="${secondEmpty}"]`).click();
   await page.getByRole('button', { name: `Note ${noteDigit}`, exact: true }).click();
   await expect(page.locator(`[data-index="${secondEmpty}"]`)).toContainText(String(noteDigit));
 
   // Undo twice: note gone, value gone.
-  await page.getByRole('button', { name: 'Pencil marks' }).click();
+  await page.getByRole('button', { name: 'Notes, pencil marks' }).click();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.locator(`[data-index="${secondEmpty}"]`)).toHaveText('');
   await page.getByRole('button', { name: 'Undo' }).click();

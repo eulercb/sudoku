@@ -3,7 +3,9 @@ import { useStore } from '../store';
 
 /**
  * Drives the game clock while play is active and the tab is visible.
- * Time spent hidden or paused never counts.
+ * Time spent hidden or paused never counts. The store owns the tick anchor
+ * (game.lastTickAt) and folds the in-flight fraction on pause/win itself,
+ * so no sub-second slice is ever lost.
  */
 export function useTimer(): void {
   const playing = useStore((s) => s.game.status === 'playing');
@@ -11,26 +13,19 @@ export function useTimer(): void {
   useEffect(() => {
     if (!playing) return;
 
-    let last = performance.now();
     let interval: ReturnType<typeof setInterval> | null = null;
-
-    const tickNow = () => {
-      const now = performance.now();
-      useStore.getState().tick(now - last);
-      last = now;
-    };
 
     const start = () => {
       if (interval !== null) return;
-      last = performance.now();
-      interval = setInterval(tickNow, 1000);
+      useStore.getState().timerStart();
+      interval = setInterval(() => useStore.getState().timerTick(), 1000);
     };
 
     const stop = () => {
       if (interval === null) return;
-      tickNow();
       clearInterval(interval);
       interval = null;
+      useStore.getState().timerStop();
     };
 
     const onVisibility = () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { CloseIcon } from './icons';
+import { useFocusTrap } from './useFocusTrap';
 import styles from './Sheet.module.css';
 
 interface SheetProps {
@@ -9,13 +10,12 @@ interface SheetProps {
   children: ReactNode;
 }
 
-/** Bottom sheet: scrim + sliding panel, Escape/scrim-tap to dismiss. */
+/** Bottom sheet: scrim + sliding panel, focus-trapped, Escape/scrim-tap to dismiss. */
 export function Sheet({ title, onClose, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef);
 
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -23,10 +23,7 @@ export function Sheet({ title, onClose, children }: SheetProps) {
       }
     };
     document.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('keydown', onKey, true);
-      previous?.focus?.();
-    };
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   return (

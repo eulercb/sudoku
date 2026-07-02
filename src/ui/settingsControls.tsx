@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
+import { radioGroupKeyDown } from './radioGroup';
 import styles from './settingsControls.module.css';
 
 /** Small primitives shared by the settings sheet: toggle rows and segmented choices. */
+
+const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 export function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -52,18 +55,26 @@ export function ChoiceRow<T extends string>({
   options,
   onChange,
 }: ChoiceRowProps<T>) {
+  const labelId = `choice-${slug(label)}`;
+  const values = options.map((o) => o.value);
   return (
     <div className={styles.row}>
-      <span className={styles.rowText} id={`choice-${label}`}>
+      <span className={styles.rowText} id={labelId}>
         <span>{label}</span>
         {hint && <span className={styles.hint}>{hint}</span>}
       </span>
-      <div className={styles.segment} role="radiogroup" aria-labelledby={`choice-${label}`}>
+      <div
+        className={styles.segment}
+        role="radiogroup"
+        aria-labelledby={labelId}
+        onKeyDown={(e) => radioGroupKeyDown(e, values, value, onChange)}
+      >
         {options.map((option) => (
           <button
             key={option.value}
             role="radio"
             aria-checked={value === option.value}
+            tabIndex={value === option.value ? 0 : -1}
             className={value === option.value ? styles.segmentOn : ''}
             onClick={() => onChange(option.value)}
           >

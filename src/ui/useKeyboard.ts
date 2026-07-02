@@ -29,6 +29,9 @@ export function useKeyboard(enabled: boolean): void {
       }
 
       if (key >= '1' && key <= '9') {
+        // Ignore held-key auto-repeat (it would toggle the cell and inflate
+        // the mistake counter) and browser shortcuts like Ctrl+1.
+        if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
         e.preventDefault();
         s.applyDigit(Number(key) as Digit);
         return;
@@ -53,6 +56,7 @@ export function useKeyboard(enabled: boolean): void {
       }
 
       if (key === 'p' || key === 'P' || key === 'n' || key === 'N') {
+        if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
         e.preventDefault();
         s.togglePencil();
       }

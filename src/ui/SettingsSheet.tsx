@@ -1,14 +1,15 @@
 import { useStore } from '../store';
 import type { AccentName } from '../store/settingsSlice';
 import { Sheet } from './Sheet';
+import { radioGroupKeyDown } from './radioGroup';
 import { ChoiceRow, Group, ToggleRow } from './settingsControls';
 import styles from './SettingsSheet.module.css';
 
 const ACCENTS: readonly { value: AccentName; color: string }[] = [
   { value: 'indigo', color: '#5b68c7' },
-  { value: 'teal', color: '#35897c' },
-  { value: 'plum', color: '#a1669f' },
-  { value: 'ember', color: '#c07a4b' },
+  { value: 'teal', color: '#2f7d71' },
+  { value: 'plum', color: '#96588f' },
+  { value: 'ember', color: '#a5622e' },
 ];
 
 export function SettingsSheet({ onClose }: { onClose: () => void }) {
@@ -34,13 +35,26 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           <span className={styles.accentLabel} id="accent-label">
             Accent
           </span>
-          <div className={styles.accents} role="radiogroup" aria-labelledby="accent-label">
+          <div
+            className={styles.accents}
+            role="radiogroup"
+            aria-labelledby="accent-label"
+            onKeyDown={(e) =>
+              radioGroupKeyDown(
+                e,
+                ACCENTS.map((a) => a.value),
+                settings.accent,
+                (v) => setSetting('accent', v),
+              )
+            }
+          >
             {ACCENTS.map((a) => (
               <button
                 key={a.value}
                 role="radio"
                 aria-checked={settings.accent === a.value}
                 aria-label={`Accent ${a.value}`}
+                tabIndex={settings.accent === a.value ? 0 : -1}
                 className={`${styles.accentDot} ${settings.accent === a.value ? styles.accentOn : ''}`}
                 style={{ background: a.color }}
                 onClick={() => setSetting('accent', a.value)}

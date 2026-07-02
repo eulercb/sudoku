@@ -21,7 +21,7 @@ export function TopBar() {
       <button
         className={styles.tier}
         onClick={() => setOpenSheet('newGame')}
-        aria-label="Change difficulty, start a new game"
+        aria-label={inGame ? `${TIER_LABELS[tier]}, change difficulty` : 'Sudoku, start a new game'}
       >
         {inGame ? TIER_LABELS[tier] : 'Sudoku'}
       </button>

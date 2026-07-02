@@ -57,4 +57,23 @@ describe('game persistence', () => {
     expect(fromPersistedGame({})).toBeNull();
     expect(fromPersistedGame({ puzzleId: 'x', cells: { values: [1, 2] } })).toBeNull();
   });
+
+  it('rejects structurally corrupt saves instead of crashing later', () => {
+    const good = toPersistedGame(playedGame());
+
+    // Missing note masks would crash the first command application.
+    const noCorner = JSON.parse(JSON.stringify(good));
+    delete noCorner.cells.corner;
+    expect(fromPersistedGame(noCorner)).toBeNull();
+
+    // Non-array history would crash undo.
+    expect(fromPersistedGame({ ...good, past: 'nope' })).toBeNull();
+    expect(fromPersistedGame({ ...good, past: [{ notPatches: true }] })).toBeNull();
+
+    // Unknown enum values leave the game unplayable.
+    expect(fromPersistedGame({ ...good, status: 'zombie' })).toBeNull();
+    expect(fromPersistedGame({ ...good, noteMode: 'diagonal' })).toBeNull();
+    expect(fromPersistedGame({ ...good, tier: 'nightmare' })).toBeNull();
+    expect(fromPersistedGame({ ...good, elapsedMs: 'fast' })).toBeNull();
+  });
 });

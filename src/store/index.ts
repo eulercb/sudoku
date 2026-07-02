@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   clearAllNotes,
+  clearBoard as buildClearBoard,
   eraseCells,
   fillAllCandidates,
   placeValue,
@@ -42,8 +43,13 @@ export interface Store {
   restartPuzzle(): void;
   pause(): void;
   resume(): void;
-  tick(deltaMs: number): void;
   dismissWin(): void;
+
+  // Timer: start anchors the clock, tick folds elapsed time, stop folds and
+  // releases. Transitions out of 'playing' fold pending time themselves.
+  timerStart(): void;
+  timerTick(): void;
+  timerStop(): void;
 
   // Selection & input
   selectCell(index: number, mode?: 'replace' | 'append' | 'toggle'): void;
@@ -55,6 +61,8 @@ export interface Store {
   toggleArmedErase(): void;
   tapCell(index: number, additive?: boolean): void;
   padDigit(digit: Digit): void;
+  /** The pad/controls erase button: arms the eraser in number-first mode. */
+  padErase(): void;
   applyDigit(digit: Digit): void;
   erase(): void;
   undo(): void;
@@ -63,6 +71,7 @@ export interface Store {
   // Assists
   fillNotes(): void;
   clearNotes(): void;
+  clearBoard(): void;
   hint(): void;
   checkNow(): void;
 
@@ -73,6 +82,12 @@ export interface Store {
 }
 
 const isEditable = (game: GameState, index: number): boolean => game.givens[index] === 0;
+
+/** Fold the in-flight fraction of a second into elapsedMs. */
+const foldElapsed = (game: GameState): number =>
+  game.status === 'playing' && game.lastTickAt !== null
+    ? game.elapsedMs + Math.max(0, performance.now() - game.lastTickAt)
+    : game.elapsedMs;
 
 interface CommitMeta {
   /** Set when the command placed this digit into these cells as values. */
@@ -110,10 +125,22 @@ export const useStore = create<Store>()((set, get) => {
     }
 
     const won = game.status === 'playing' && isSolved(cells.values, game.solution);
+    const elapsedMs = won ? foldElapsed(game) : game.elapsedMs;
 
     let nextStats: StatsState = stats;
     if (won) {
-      nextStats = recordWin(stats, game.tier, game.elapsedMs, new Date());
+      nextStats = recordWin(stats, game.tier, elapsedMs, new Date());
+    }
+
+    // An armed digit whose ninth copy just landed disappears from the pad
+    // (when hide-completed is on) — disarm it so taps don't silently place it.
+    let armedDigit = game.armedDigit;
+    if (
+      armedDigit !== null &&
+      settings.removeCompletedDigits &&
+      cells.values.filter((v) => v === armedDigit).length >= 9
+    ) {
+      armedDigit = null;
     }
 
     set({
@@ -123,6 +150,9 @@ export const useStore = create<Store>()((set, get) => {
         past,
         future: [],
         mistakes,
+        armedDigit,
+        elapsedMs,
+        lastTickAt: won ? null : game.lastTickAt,
         hintsUsed: game.hintsUsed + (meta.countsAsHint ? 1 : 0),
         checkFlagged: [],
         status: won ? 'won' : game.status,
@@ -141,9 +171,10 @@ export const useStore = create<Store>()((set, get) => {
     if (game.status !== 'playing' || targets.length === 0) return;
     const editable = (i: number) => isEditable(game, i);
 
-    if (game.noteMode !== 'off') {
-      // Hand-edited pencil marks only exist in user-managed candidate mode.
-      if (settings.autoCandidates) return;
+    // Hand-edited pencil marks only exist in user-managed candidate mode;
+    // with auto-candidates on, digits always place values (note mode is
+    // forced off elsewhere, this is the safety net for stale state).
+    if (game.noteMode !== 'off' && !settings.autoCandidates) {
       const command = toggleMark(game.cells, targets, editable, digit, game.noteMode);
       if (command) commit(command);
       return;
@@ -170,9 +201,14 @@ export const useStore = create<Store>()((set, get) => {
     hydrated: false,
 
     hydrate(data) {
+      const game = fromPersistedGame(data.game) ?? emptyGame();
+      const settings = hydrateSettings(data.settings);
+      // The two candidate modes never mix: auto-candidates implies no
+      // hand-managed pencil mode.
+      if (settings.autoCandidates) game.noteMode = 'off';
       set({
-        game: fromPersistedGame(data.game) ?? emptyGame(),
-        settings: hydrateSettings(data.settings),
+        game,
+        settings,
         stats: hydrateStats(data.stats),
         hydrated: true,
       });
@@ -211,6 +247,7 @@ export const useStore = create<Store>()((set, get) => {
           past: [],
           future: [],
           elapsedMs: 0,
+          lastTickAt: null,
           mistakes: 0,
           hintsUsed: 0,
           status: 'playing',
@@ -223,18 +260,47 @@ export const useStore = create<Store>()((set, get) => {
 
     pause() {
       const { game } = get();
-      if (game.status === 'playing') set({ game: { ...game, status: 'paused' } });
+      if (game.status !== 'playing') return;
+      set({
+        game: { ...game, elapsedMs: foldElapsed(game), lastTickAt: null, status: 'paused' },
+      });
     },
 
     resume() {
       const { game } = get();
-      if (game.status === 'paused') set({ game: { ...game, status: 'playing' } });
+      if (game.status === 'paused') {
+        set({ game: { ...game, status: 'playing', lastTickAt: null } });
+      }
     },
 
-    tick(deltaMs) {
+    timerStart() {
       const { game } = get();
       if (game.status !== 'playing') return;
-      set({ game: { ...game, elapsedMs: game.elapsedMs + deltaMs } });
+      set({ game: { ...game, lastTickAt: performance.now() } });
+    },
+
+    timerTick() {
+      const { game } = get();
+      if (game.status !== 'playing') return;
+      const now = performance.now();
+      if (game.lastTickAt === null) {
+        // Self-heal: the clock restarts on the next tick after e.g. restart.
+        set({ game: { ...game, lastTickAt: now } });
+        return;
+      }
+      set({
+        game: {
+          ...game,
+          elapsedMs: game.elapsedMs + Math.max(0, now - game.lastTickAt),
+          lastTickAt: now,
+        },
+      });
+    },
+
+    timerStop() {
+      const { game } = get();
+      if (game.lastTickAt === null) return;
+      set({ game: { ...game, elapsedMs: foldElapsed(game), lastTickAt: null } });
     },
 
     dismissWin() {
@@ -271,7 +337,9 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     setNoteMode(mode) {
-      const { game } = get();
+      const { game, settings } = get();
+      // Pencil modes don't exist while the app manages candidates.
+      if (settings.autoCandidates && mode !== 'off') return;
       set({
         game: {
           ...game,
@@ -328,17 +396,23 @@ export const useStore = create<Store>()((set, get) => {
       }
     },
 
+    padErase() {
+      const { settings } = get();
+      if (settings.inputMode === 'number-first') {
+        // The erase button is an armable tool in number-first mode; a second
+        // press always disarms it.
+        get().toggleArmedErase();
+      } else {
+        eraseAt(get().game.selection);
+      }
+    },
+
     applyDigit(digit) {
       applyDigitTo(digit, get().game.selection);
     },
 
     erase() {
-      const { game, settings } = get();
-      if (settings.inputMode === 'number-first' && game.selection.length === 0) {
-        get().toggleArmedErase();
-        return;
-      }
-      eraseAt(game.selection);
+      eraseAt(get().game.selection);
     },
 
     undo() {
@@ -362,6 +436,7 @@ export const useStore = create<Store>()((set, get) => {
       const command = game.future[0]!;
       const cells = applyCommand(game.cells, command);
       const won = isSolved(cells.values, game.solution);
+      const elapsedMs = won ? foldElapsed(game) : game.elapsedMs;
       set({
         game: {
           ...game,
@@ -369,9 +444,11 @@ export const useStore = create<Store>()((set, get) => {
           past: [...game.past, command],
           future: game.future.slice(1),
           checkFlagged: [],
+          elapsedMs,
+          lastTickAt: won ? null : game.lastTickAt,
           status: won ? 'won' : game.status,
         },
-        ...(won ? { stats: recordWin(get().stats, game.tier, game.elapsedMs, new Date()) } : {}),
+        ...(won ? { stats: recordWin(get().stats, game.tier, elapsedMs, new Date()) } : {}),
       });
       if (won && get().settings.haptics) vibrate('win');
     },
@@ -387,6 +464,13 @@ export const useStore = create<Store>()((set, get) => {
       const { game } = get();
       if (game.status !== 'playing') return;
       const command = clearAllNotes(game.cells);
+      if (command) commit(command);
+    },
+
+    clearBoard() {
+      const { game } = get();
+      if (game.status !== 'playing') return;
+      const command = buildClearBoard(game.cells, (i) => isEditable(game, i));
       if (command) commit(command);
     },
 
@@ -421,7 +505,12 @@ export const useStore = create<Store>()((set, get) => {
     checkNow() {
       const { game, settings } = get();
       if (game.status !== 'playing') return;
-      const flagged = new Set<number>(findMistakes(game.cells.values, game.solution));
+      const flagged = new Set<number>();
+      // Solution-based checking is oracle information; a veteran who turned
+      // mistake checking off gets rule conflicts only.
+      if (settings.mistakeChecking !== 'off') {
+        for (const i of findMistakes(game.cells.values, game.solution)) flagged.add(i);
+      }
       if (settings.conflictHighlight !== 'off') {
         for (const i of findConflicts(game.cells.values)) flagged.add(i);
       }
@@ -429,7 +518,15 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     setSetting(key, value) {
-      set((state) => ({ settings: { ...state.settings, [key]: value } }));
+      set((state) => {
+        const settings = { ...state.settings, [key]: value };
+        // Turning auto-candidates on retires any active pencil mode, so
+        // digit entry never dead-ends (candidate modes never mix).
+        if (key === 'autoCandidates' && value === true && state.game.noteMode !== 'off') {
+          return { settings, game: { ...state.game, noteMode: 'off' } };
+        }
+        return { settings };
+      });
     },
 
     resetStats() {

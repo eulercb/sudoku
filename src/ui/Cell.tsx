@@ -17,8 +17,12 @@ interface CellProps {
   hidden: boolean;
 }
 
-/** Fixed 3×3 anchor per digit, so corner marks always sit in the same spot. */
-const CORNER_AREAS = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'] as const;
+/**
+ * Corner marks fill anchor slots in reading order (Snyder style): corners
+ * first, then edges, center last — so they only reach the middle when the
+ * cell already holds nine marks and never sit on top of center marks.
+ */
+const CORNER_AREAS = ['tl', 'tr', 'bl', 'br', 'tc', 'bc', 'ml', 'mr', 'mc'] as const;
 
 export const Cell = memo(function Cell({
   index,
@@ -55,6 +59,7 @@ export const Cell = memo(function Cell({
   return (
     <div
       role="gridcell"
+      id={`cell-${index}`}
       data-index={index}
       aria-selected={selected}
       aria-label={label}
@@ -67,8 +72,8 @@ export const Cell = memo(function Cell({
         <>
           {cornerDigits.length > 0 && (
             <span className={styles.corner} aria-hidden="true">
-              {cornerDigits.map((d) => (
-                <i key={d} className={styles[`c-${CORNER_AREAS[d - 1]!}`]}>
+              {cornerDigits.map((d, slot) => (
+                <i key={d} className={styles[`c-${CORNER_AREAS[slot]!}`]}>
                   {d}
                 </i>
               ))}

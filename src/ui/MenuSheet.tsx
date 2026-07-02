@@ -5,6 +5,7 @@ import {
   BroomIcon,
   CheckIcon,
   DownloadIcon,
+  EraseIcon,
   GearIcon,
   PlusIcon,
   RestartIcon,
@@ -18,9 +19,14 @@ export function MenuSheet({ onClose }: { onClose: () => void }) {
   const setOpenSheet = useStore((s) => s.setOpenSheet);
   const restartPuzzle = useStore((s) => s.restartPuzzle);
   const clearNotes = useStore((s) => s.clearNotes);
+  const clearBoard = useStore((s) => s.clearBoard);
   const checkNow = useStore((s) => s.checkNow);
   const inGame = useStore((s) => s.game.status === 'playing' || s.game.status === 'paused');
   const autoCandidates = useStore((s) => s.settings.autoCandidates);
+  // Check would flag nothing when both assists are off — hide it then.
+  const checkUseful = useStore(
+    (s) => s.settings.mistakeChecking !== 'off' || s.settings.conflictHighlight !== 'off',
+  );
   const installable = useInstallable();
   const [confirmRestart, setConfirmRestart] = useState(false);
 
@@ -43,7 +49,7 @@ export function MenuSheet({ onClose }: { onClose: () => void }) {
             <span>{confirmRestart ? 'Tap again to restart this puzzle' : 'Restart puzzle'}</span>
           </button>
         )}
-        {inGame && (
+        {inGame && checkUseful && (
           <button
             className={styles.item}
             onClick={() => {
@@ -65,6 +71,18 @@ export function MenuSheet({ onClose }: { onClose: () => void }) {
           >
             <BroomIcon />
             <span>Clear all notes</span>
+          </button>
+        )}
+        {inGame && (
+          <button
+            className={styles.item}
+            onClick={() => {
+              clearBoard();
+              onClose();
+            }}
+          >
+            <EraseIcon />
+            <span>Clear board</span>
           </button>
         )}
         <button className={styles.item} onClick={() => setOpenSheet('stats')}>

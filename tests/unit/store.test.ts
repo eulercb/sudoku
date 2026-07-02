@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PEERS } from '../../src/game/board';
 import type { Digit } from '../../src/game/types';
 import { useStore } from '../../src/store';
 import { FIXTURE_PUZZLE, fixtureGivens, fixtureSolution } from '../fixtures';
@@ -21,9 +22,23 @@ const wrongDigitFor = (index: number): Digit => {
   return ((right % 9) + 1) as Digit;
 };
 
+/** Drive the game clock deterministically via a mocked performance.now(). */
+let fakeNow = 0;
+const advance = (ms: number) => {
+  fakeNow += ms;
+  s().timerTick();
+};
+
 beforeEach(() => {
+  fakeNow = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => fakeNow);
   s().hydrate({});
   s().newGame('easy');
+  s().timerStart();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('game lifecycle', () => {
@@ -33,26 +48,56 @@ describe('game lifecycle', () => {
     expect(s().stats.perTier.easy.started).toBe(1);
   });
 
-  it('pauses and resumes', () => {
+  it('pauses and resumes, never counting paused time', () => {
+    advance(1000);
+    expect(s().game.elapsedMs).toBe(1000);
     s().pause();
     expect(s().game.status).toBe('paused');
-    s().tick(1000);
-    expect(s().game.elapsedMs).toBe(0); // no time accrues while paused
-    s().resume();
-    s().tick(1000);
+    fakeNow += 5000;
+    s().timerTick(); // ignored while paused
     expect(s().game.elapsedMs).toBe(1000);
+    s().resume();
+    s().timerStart();
+    advance(1000);
+    expect(s().game.elapsedMs).toBe(2000);
+  });
+
+  it('pause folds the in-flight fraction of a second', () => {
+    advance(1000);
+    fakeNow += 400; // 400ms accrued but not yet ticked
+    s().pause();
+    expect(s().game.elapsedMs).toBe(1400);
+  });
+
+  it('winning folds pending time into the recorded solve time', () => {
+    advance(90_000);
+    fakeNow += 250;
+    const solution = fixtureSolution();
+    const givens = fixtureGivens();
+    for (let i = 0; i < 81; i++) {
+      if (givens[i] === 0) {
+        s().selectCell(i);
+        s().applyDigit(solution[i]! as Digit);
+      }
+    }
+    expect(s().game.status).toBe('won');
+    expect(s().stats.perTier.easy.bestMs).toBe(90_250);
   });
 
   it('restart resets board, timer, history and counters', () => {
     const i = firstEmpty();
     s().selectCell(i);
     s().applyDigit(wrongDigitFor(i));
-    s().tick(5000);
+    advance(5000);
     s().restartPuzzle();
     expect(s().game.cells.values).toEqual(fixtureGivens());
     expect(s().game.elapsedMs).toBe(0);
     expect(s().game.mistakes).toBe(0);
     expect(s().game.past).toHaveLength(0);
+    // The clock self-heals on the next tick and keeps counting.
+    advance(1000);
+    advance(1000);
+    expect(s().game.elapsedMs).toBe(1000);
   });
 });
 
@@ -118,13 +163,33 @@ describe('notes', () => {
     expect(s().game.noteMode).toBe('center');
   });
 
-  it('blocks hand-editing notes in auto-candidate mode', () => {
-    s().setSetting('autoCandidates', true);
-    const i = firstEmpty();
-    s().selectCell(i);
+  it('auto-candidate mode forces the pencil off and keeps digits placing values', () => {
+    // Pencil active, then the user enables app-managed candidates.
     s().setNoteMode('corner');
-    s().applyDigit(3);
+    s().setSetting('autoCandidates', true);
+    expect(s().game.noteMode).toBe('off'); // never mixed, never soft-locked
+
+    // Pencil mode cannot be re-entered while auto candidates are on.
+    s().setNoteMode('center');
+    expect(s().game.noteMode).toBe('off');
+    s().togglePencil();
+    expect(s().game.noteMode).toBe('off');
+
+    // Digit entry still places values, and no user notes get edited.
+    const i = firstEmpty();
+    const d = fixtureSolution()[i]! as Digit;
+    s().selectCell(i);
+    s().applyDigit(d);
+    expect(s().game.cells.values[i]).toBe(d);
     expect(s().game.cells.corner[i]).toBe(0);
+  });
+
+  it('hydrating auto-candidates settings normalizes a persisted pencil mode', () => {
+    s().hydrate({ settings: { autoCandidates: true } });
+    s().newGame('easy');
+    expect(s().game.noteMode).toBe('off');
+    s().setNoteMode('corner');
+    expect(s().game.noteMode).toBe('off');
   });
 
   it('fill notes writes candidates; clear notes wipes them', () => {
@@ -158,6 +223,44 @@ describe('input modes', () => {
   });
 });
 
+describe('number-first tools', () => {
+  it('padErase arms the eraser and a second press disarms it', () => {
+    s().setSetting('inputMode', 'number-first');
+    s().padErase();
+    expect(s().game.armedErase).toBe(true);
+    const i = firstEmpty();
+    const d = fixtureSolution()[i]! as Digit;
+    s().armDigit(d); // arming a digit clears the eraser
+    expect(s().game.armedErase).toBe(false);
+    s().tapCell(i);
+    expect(s().game.cells.values[i]).toBe(d);
+    s().padErase();
+    s().tapCell(i);
+    expect(s().game.cells.values[i]).toBe(0);
+    s().padErase();
+    expect(s().game.armedErase).toBe(false); // disarmed, taps only select again
+  });
+
+  it('disarms the digit once all nine are placed and the pad key hides', () => {
+    s().setSetting('inputMode', 'number-first');
+    const solution = fixtureSolution();
+    const givens = fixtureGivens();
+    const d = solution[firstEmpty()]! as Digit;
+    const missing = solution.flatMap((v, i) => (v === d && givens[i] === 0 ? [i] : []));
+    // Place all but the last via plain selection entry.
+    for (const i of missing.slice(0, -1)) {
+      s().selectCell(i);
+      s().applyDigit(d);
+    }
+    const lastCell = missing[missing.length - 1]!;
+    s().padDigit(d);
+    expect(s().game.armedDigit).toBe(d);
+    s().tapCell(lastCell);
+    expect(s().game.cells.values[lastCell]).toBe(d);
+    expect(s().game.armedDigit).toBeNull();
+  });
+});
+
 describe('hints & checks', () => {
   it('reveal-a-cell fills the selected cell with the solution', () => {
     const i = firstEmpty();
@@ -176,6 +279,44 @@ describe('hints & checks', () => {
     s().applyDigit(fixtureSolution()[i]! as Digit);
     expect(s().game.checkFlagged).toHaveLength(0);
   });
+
+  it('check respects mistakeChecking off: only rule conflicts are flagged', () => {
+    s().setSetting('mistakeChecking', 'off');
+    // Find a wrong-but-conflict-free entry: a digit that differs from the
+    // solution yet appears nowhere among the cell's peers.
+    const givens = fixtureGivens();
+    const solution = fixtureSolution();
+    let cell = -1;
+    let wrong: Digit | null = null;
+    outer: for (let i = 0; i < 81; i++) {
+      if (givens[i] !== 0) continue;
+      const peerDigits = new Set(PEERS[i]!.map((p) => givens[p]));
+      for (let d = 1; d <= 9; d++) {
+        if (d !== solution[i] && !peerDigits.has(d as Digit)) {
+          cell = i;
+          wrong = d as Digit;
+          break outer;
+        }
+      }
+    }
+    expect(wrong).not.toBeNull();
+    s().selectCell(cell);
+    s().applyDigit(wrong!);
+    s().checkNow();
+    // Wrong against the solution, but no oracle leak: nothing is flagged.
+    expect(s().game.checkFlagged).toHaveLength(0);
+  });
+
+  it('clear board wipes entries undoably', () => {
+    const i = firstEmpty();
+    const d = fixtureSolution()[i]! as Digit;
+    s().selectCell(i);
+    s().applyDigit(d);
+    s().clearBoard();
+    expect(s().game.cells.values).toEqual(fixtureGivens());
+    s().undo();
+    expect(s().game.cells.values[i]).toBe(d);
+  });
 });
 
 describe('winning', () => {
@@ -191,7 +332,7 @@ describe('winning', () => {
   };
 
   it('detects the win, records stats, and locks the board', () => {
-    s().tick(90_000);
+    advance(90_000);
     solveAll();
     expect(s().game.status).toBe('won');
     expect(s().stats.perTier.easy.wins).toBe(1);

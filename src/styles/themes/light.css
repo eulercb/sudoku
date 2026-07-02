@@ -18,7 +18,7 @@
   --accent: var(--accent-base);
   --on-accent: #ffffff;
   --entry-ink: color-mix(in oklab, var(--accent-base) 82%, #1c1e26);
-  --note-ink: #8c8f97;
+  --note-ink: #6b6e76;
 
   --sel-bg: color-mix(in oklab, var(--accent-base) 26%, transparent);
   --peer-bg: color-mix(in oklab, var(--accent-base) 9%, transparent);

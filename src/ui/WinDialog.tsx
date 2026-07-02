@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useStore } from '../store';
 import { effectiveStreak } from '../store/statsSlice';
 import { TIER_LABELS, formatTime } from './format';
+import { useFocusTrap } from './useFocusTrap';
 import styles from './WinDialog.module.css';
 
 export function WinDialog() {
@@ -16,9 +17,7 @@ export function WinDialog() {
   const dismissWin = useStore((s) => s.dismissWin);
 
   const panelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    panelRef.current?.focus();
-  }, []);
+  useFocusTrap(panelRef);
 
   const isBest = stats.perTier[tier].bestMs === elapsedMs;
   const streak = effectiveStreak(stats, new Date());

@@ -7,6 +7,10 @@ import { readRecord, writeRecord } from './db';
  * (debounced) to IndexedDB so a reload resumes seamlessly. Timer-only changes
  * are throttled hard — the elapsed time is flushed every ~15s and whenever
  * the page hides, which is when it actually matters.
+ *
+ * There is deliberately ONE active game: concurrent tabs share the same
+ * record last-writer-wins. That matches the product model (a personal,
+ * single-screen mobile game) and keeps persistence dumb and robust.
  */
 
 const DEBOUNCE_MS = 300;
