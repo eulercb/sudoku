@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+# Publish the built PWA to GitHub Pages on every merge to main.
+on:
+  push:
+    branches: [main]
+  # Allow re-deploying the current main from the Actions tab.
+  workflow_dispatch:
+
+# Grant the GITHUB_TOKEN the permissions the Pages deployment needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deployments at once; let an in-flight production deploy
+# finish rather than cancelling it, and skip any runs queued behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The site is served from the root of the custom domain
+      # (https://sudoku.zen.dev.br/), so Vite's default base of '/' is
+      # correct and no base override is needed. `npm run build` runs the
+      # typecheck first, so a type error fails the deploy.
+      - name: Build
+        run: npm run build
+      - uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
