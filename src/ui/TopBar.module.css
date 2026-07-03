@@ -1,0 +1,50 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(100%, 33rem);
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-3);
+}
+
+.tier {
+  font-size: var(--text-m);
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  padding: var(--space-1) var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  border-radius: var(--radius-s);
+}
+
+.tier::after {
+  content: ' ›';
+  color: var(--ink-faint);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.mistakes {
+  font-size: var(--text-s);
+  color: var(--flag);
+}
+
+.timer {
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-m);
+  color: var(--ink-soft);
+}
+
+.iconButton:active {
+  background: var(--peer-bg);
+}

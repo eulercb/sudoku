@@ -1,0 +1,32 @@
+/* Light — warm paper. Also the fallback when no data-theme is set. */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f4ef;
+  --surface: #fcfbf8;
+  --surface-raised: #ffffff;
+  --ink: #2c2f37;
+  --ink-soft: #6d707a;
+  --ink-faint: #a5a7ae;
+
+  --line: #e5e2d9;
+  --grid-line: #d4d1c7;
+  --grid-line-strong: #494c55;
+
+  --accent: var(--accent-base);
+  --on-accent: #ffffff;
+  --entry-ink: color-mix(in oklab, var(--accent-base) 82%, #1c1e26);
+  --note-ink: #6b6e76;
+
+  --sel-bg: color-mix(in oklab, var(--accent-base) 26%, transparent);
+  --peer-bg: color-mix(in oklab, var(--accent-base) 9%, transparent);
+  --same-bg: color-mix(in oklab, var(--accent-base) 17%, transparent);
+  --flag: #b04a42;
+  --flag-bg: color-mix(in oklab, #b04a42 14%, transparent);
+
+  --scrim: rgb(44 47 55 / 0.42);
+  --shadow-sheet: 0 -8px 40px rgb(44 47 55 / 0.16);
+  --shadow-pop: 0 10px 40px rgb(44 47 55 / 0.22);
+}

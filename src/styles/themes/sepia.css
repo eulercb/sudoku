@@ -1,0 +1,31 @@
+/* Sepia — old paper, warm evening reading light. */
+
+[data-theme='sepia'] {
+  color-scheme: light;
+
+  --bg: #f0e8d7;
+  --surface: #f7f1e2;
+  --surface-raised: #fbf6ea;
+  --ink: #46392a;
+  --ink-soft: #7d6e59;
+  --ink-faint: #a2957f;
+
+  --line: #e0d5be;
+  --grid-line: #cfc2a7;
+  --grid-line-strong: #5c4d38;
+
+  --accent: color-mix(in oklab, var(--accent-base) 78%, #6b4a2a);
+  --on-accent: #fbf6ea;
+  --entry-ink: color-mix(in oklab, var(--accent-base) 62%, #4a3823);
+  --note-ink: #6f6450;
+
+  --sel-bg: color-mix(in oklab, var(--accent-base) 24%, transparent);
+  --peer-bg: color-mix(in oklab, var(--accent-base) 9%, transparent);
+  --same-bg: color-mix(in oklab, var(--accent-base) 16%, transparent);
+  --flag: #a34f38;
+  --flag-bg: color-mix(in oklab, #a34f38 15%, transparent);
+
+  --scrim: rgb(70 57 42 / 0.45);
+  --shadow-sheet: 0 -8px 40px rgb(70 57 42 / 0.2);
+  --shadow-pop: 0 10px 40px rgb(70 57 42 / 0.25);
+}

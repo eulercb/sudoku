@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f4ef" />
+    <meta name="description" content="A relaxing, minimalist Sudoku with honest difficulty." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <title>Sudoku</title>
+    <script>
+      // Apply the persisted theme before first paint (mirrored to
+      // localStorage by useTheme; IndexedDB is too slow for this).
+      (function () {
+        try {
+          var theme = localStorage.getItem('sudoku:theme') || 'system';
+          if (theme === 'system') {
+            theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.dataset.theme = theme;
+          var accent = localStorage.getItem('sudoku:accent');
+          if (accent) document.documentElement.dataset.accent = accent;
+          var backgrounds = {
+            light: '#f6f4ef',
+            dark: '#15171d',
+            sepia: '#f0e8d7',
+            'high-contrast': '#ffffff',
+          };
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta && backgrounds[theme]) meta.setAttribute('content', backgrounds[theme]);
+        } catch (e) {
+          /* first paint just uses the default theme */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+/* High contrast — maximum legibility, unambiguous states. */
+
+[data-theme='high-contrast'] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #000000;
+  --ink-soft: #333333;
+  --ink-faint: #595959;
+
+  --line: #767676;
+  --grid-line: #4d4d4d;
+  --grid-line-strong: #000000;
+
+  --accent: #0031c8;
+  --on-accent: #ffffff;
+  --entry-ink: #0031c8;
+  --note-ink: #333333;
+
+  --sel-bg: #ffd60a;
+  --peer-bg: #e8e8e8;
+  --same-bg: #b5d3ff;
+  --flag: #c40000;
+  --flag-bg: #ffd2d2;
+
+  --scrim: rgb(0 0 0 / 0.6);
+  --shadow-sheet: 0 0 0 2px #000000;
+  --shadow-pop: 0 0 0 2px #000000;
+}

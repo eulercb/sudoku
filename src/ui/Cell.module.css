@@ -1,0 +1,126 @@
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  transition: background var(--dur-quick) var(--ease);
+  contain: layout paint;
+}
+
+.peer {
+  background: var(--peer-bg);
+}
+
+.same {
+  background: var(--same-bg);
+}
+
+.selected {
+  background: var(--sel-bg);
+}
+
+.flagged {
+  background: var(--flag-bg);
+}
+
+.flagged .value {
+  color: var(--flag);
+}
+
+/* A flagged cell that is also selected still shows the selection. */
+.selected.flagged {
+  background: color-mix(in oklab, var(--sel-bg) 55%, var(--flag-bg));
+}
+
+.value {
+  font-size: 5.6cqw;
+  font-weight: 500;
+  color: var(--entry-ink);
+  line-height: 1;
+  animation: pop var(--dur-quick) var(--ease);
+}
+
+.given .value {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+}
+
+.corner {
+  position: absolute;
+  inset: 4%;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  pointer-events: none;
+}
+
+.corner i {
+  font-style: normal;
+  font-size: 2.5cqw;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--note-ink);
+  display: grid;
+  place-items: center;
+}
+
+.c-tl {
+  grid-area: 1 / 1;
+}
+.c-tc {
+  grid-area: 1 / 2;
+}
+.c-tr {
+  grid-area: 1 / 3;
+}
+.c-ml {
+  grid-area: 2 / 1;
+}
+.c-mc {
+  grid-area: 2 / 2;
+}
+.c-mr {
+  grid-area: 2 / 3;
+}
+.c-bl {
+  grid-area: 3 / 1;
+}
+.c-bc {
+  grid-area: 3 / 2;
+}
+.c-br {
+  grid-area: 3 / 3;
+}
+
+.center {
+  font-size: 2.9cqw;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--note-ink);
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  max-width: 94%;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* Center marks shrink as they accumulate (Penpa-style), wrapping to two
+   tidy lines once they cannot fit one. */
+.center[data-count='5'],
+.center[data-count='6'] {
+  font-size: 2.4cqw;
+  letter-spacing: 0.02em;
+}
+
+.center[data-count='7'],
+.center[data-count='8'],
+.center[data-count='9'] {
+  font-size: 2cqw;
+  letter-spacing: 0;
+}
