@@ -50,6 +50,28 @@ describe('Cell', () => {
     expect(cell).toHaveAccessibleName(/notes 1 4 9/);
   });
 
+  it('gives every corner mark the fixed slot class of its digit', () => {
+    render(<Cell {...base} cornerMask={digitsToNotes([1, 5, 9])} />);
+    const marks = Array.from(screen.getByRole('gridcell').querySelectorAll('i'));
+    expect(marks.map((m) => m.textContent)).toEqual(['1', '5', '9']);
+    for (const mark of marks) {
+      expect(mark.className).toContain(`d-${mark.textContent}`);
+    }
+  });
+
+  it('keeps a digit in its own slot regardless of the other marks', () => {
+    const { rerender } = render(<Cell {...base} cornerMask={digitsToNotes([9])} />);
+    const only = screen.getByRole('gridcell').querySelector('i')!;
+    expect(only.textContent).toBe('9');
+    expect(only.className).toContain('d-9');
+
+    rerender(<Cell {...base} cornerMask={digitsToNotes([2, 9])} />);
+    const nine = Array.from(screen.getByRole('gridcell').querySelectorAll('i')).find(
+      (m) => m.textContent === '9',
+    )!;
+    expect(nine.className).toContain('d-9');
+  });
+
   it('hides content while paused', () => {
     render(<Cell {...base} value={7} hidden />);
     expect(screen.getByRole('gridcell')).toHaveTextContent('');

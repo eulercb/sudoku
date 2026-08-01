@@ -9,7 +9,9 @@ solvers; gentle enough for a first puzzle.
 - **Honest difficulty.** Four tiers (Easy / Medium / Hard / Expert) whose
   labels are technique-derived (via [`sudoku-gen`](https://www.npmjs.com/package/sudoku-gen)),
   never clue-count guesswork.
-- **Notes that actually work.** Corner (Snyder) marks with a one-tap pencil
+- **Notes that actually work.** Fixed-position corner marks — every digit keeps
+  its own slot in the cell (1 top-left, 5 centre, 9 bottom-right), so you read
+  a candidate by where it sits, not by what it says — with a one-tap pencil
   toggle, multi-cell drag selection, fill-all-candidates,
   auto-remove-on-placement, and a strict separation between app-managed and
   user-managed candidates — no half-synced pencil marks, ever.
