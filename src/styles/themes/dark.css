@@ -1,21 +1,22 @@
-/* Dark — dim ink, never pure black. */
+/* Dark — true black so AMOLED pixels switch off entirely. Surfaces stay at
+   #000 and are separated by borders/grid lines rather than by lift. */
 
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #15171d;
-  --surface: #1c1f26;
-  --surface-raised: #242832;
+  --bg: #000000;
+  --surface: #000000;
+  --surface-raised: #14171d;
   --ink: #e4e5e9;
   --ink-soft: #9fa3ac;
   --ink-faint: #676b74;
 
-  --line: #2a2d35;
-  --grid-line: #383c45;
+  --line: #33373f;
+  --grid-line: #41454e;
   --grid-line-strong: #b7bac2;
 
   --accent: color-mix(in oklab, var(--accent-base) 72%, #ffffff);
-  --on-accent: #15171d;
+  --on-accent: #000000;
   --entry-ink: color-mix(in oklab, var(--accent-base) 55%, #e9eaf2);
   --note-ink: #8a8e98;
 
@@ -25,7 +26,7 @@
   --flag: #d4756c;
   --flag-bg: color-mix(in oklab, #d4756c 18%, transparent);
 
-  --scrim: rgb(0 0 0 / 0.55);
-  --shadow-sheet: 0 -8px 40px rgb(0 0 0 / 0.5);
-  --shadow-pop: 0 10px 40px rgb(0 0 0 / 0.55);
+  --scrim: rgb(0 0 0 / 0.7);
+  --shadow-sheet: 0 -8px 40px rgb(0 0 0 / 0.8);
+  --shadow-pop: 0 10px 40px rgb(0 0 0 / 0.8);
 }

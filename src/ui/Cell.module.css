@@ -97,30 +97,3 @@
 .c-br {
   grid-area: 3 / 3;
 }
-
-.center {
-  font-size: 2.9cqw;
-  font-weight: 500;
-  line-height: 1.15;
-  color: var(--note-ink);
-  letter-spacing: 0.03em;
-  pointer-events: none;
-  max-width: 94%;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-/* Center marks shrink as they accumulate (Penpa-style), wrapping to two
-   tidy lines once they cannot fit one. */
-.center[data-count='5'],
-.center[data-count='6'] {
-  font-size: 2.4cqw;
-  letter-spacing: 0.02em;
-}
-
-.center[data-count='7'],
-.center[data-count='8'],
-.center[data-count='9'] {
-  font-size: 2cqw;
-  letter-spacing: 0;
-}

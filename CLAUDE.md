@@ -64,9 +64,14 @@ tests/
 - **Every board mutation is a `Command`** (per-cell before/after snapshots)
   built by `PatchBuilder` and pushed through `commit()` in the store. Undo =
   revert, redo = re-apply. Never mutate `game.cells` outside a command.
+- **Corner (Snyder) marks are the only pencil-mark style.** There is no
+  center mark and no pencil submode: the Notes button is a plain on/off
+  toggle and every notes feature (Auto/fill-all-candidates, auto-remove,
+  clear-notes, app-managed candidates) writes or reads `cells.corner`.
+  Legacy saves carrying a `center` mask are folded into `corner` on hydration.
 - **Two candidate modes, never mixed** (`settings.autoCandidates`):
-  - ON (app-managed): center marks are _derived_ at render time
-    (`useCenterMasks`), hand-editing disabled, stored user notes untouched.
+  - ON (app-managed): corner marks are _derived_ at render time
+    (`useCornerMasks`), hand-editing disabled, stored user notes untouched.
   - OFF (user-managed): the app only touches notes on placement when
     `autoRemovePeers` is on (recorded in the same command, so undo restores).
 - **Solution string is the oracle**: mistakes/hints/win all compare against
@@ -85,6 +90,9 @@ tests/
 - Plain CSS + CSS Modules; design tokens in `styles/tokens.css`, semantic
   colors per theme in `styles/themes/*.css` (selected via `data-theme` on
   `<html>`; `system` resolves in `useTheme`). No Tailwind, no component kits.
+- The dark theme is **true black** (`--bg`/`--surface` are `#000`) so AMOLED
+  pixels switch off; surfaces are separated by borders and grid lines, not by
+  lift. Keep the pre-paint `backgrounds` map in `index.html` in sync.
 - The board is a CSS Grid of divs with `container-type: inline-size`; cell
   typography scales in `cqw` units. Heavy box lines are a gradient overlay.
 - Minimalism is a feature: the resting screen is board + pad + one icon row.

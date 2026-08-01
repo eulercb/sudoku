@@ -32,12 +32,12 @@ export function useDigitCounts(): number[] {
   return useMemo(() => digitCounts(values), [values]);
 }
 
-/** Center-mark display masks: derived candidates in auto mode, user notes otherwise. */
-export function useCenterMasks(): number[] {
+/** Corner-mark display masks: derived candidates in auto mode, user notes otherwise. */
+export function useCornerMasks(): number[] {
   const values = useStore((s) => s.game.cells.values);
-  const userCenter = useStore((s) => s.game.cells.center);
+  const userCorner = useStore((s) => s.game.cells.corner);
   const auto = useStore((s) => s.settings.autoCandidates);
-  return useMemo(() => (auto ? computeCandidates(values) : userCenter), [values, userCenter, auto]);
+  return useMemo(() => (auto ? computeCandidates(values) : userCorner), [values, userCorner, auto]);
 }
 
 /** The digit to emphasize: the cursor cell's value, or the armed digit. */

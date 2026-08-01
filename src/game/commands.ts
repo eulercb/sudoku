@@ -10,7 +10,6 @@ import type { CellsState, CellValue } from './types';
 export interface CellSnapshot {
   value: CellValue;
   corner: number;
-  center: number;
 }
 
 export interface CellPatch {
@@ -26,11 +25,10 @@ export interface Command {
 export const snapshotAt = (cells: CellsState, index: number): CellSnapshot => ({
   value: cells.values[index]!,
   corner: cells.corner[index]!,
-  center: cells.center[index]!,
 });
 
 const sameSnapshot = (a: CellSnapshot, b: CellSnapshot): boolean =>
-  a.value === b.value && a.corner === b.corner && a.center === b.center;
+  a.value === b.value && a.corner === b.corner;
 
 /**
  * Collects patches for one command. Later writes to the same cell merge into
@@ -72,14 +70,12 @@ export class PatchBuilder {
 const applyPatches = (cells: CellsState, command: Command, dir: 'after' | 'before'): CellsState => {
   const values = cells.values.slice();
   const corner = cells.corner.slice();
-  const center = cells.center.slice();
   for (const patch of command.patches) {
     const snap = patch[dir];
     values[patch.index] = snap.value;
     corner[patch.index] = snap.corner;
-    center[patch.index] = snap.center;
   }
-  return { values, corner, center };
+  return { values, corner };
 };
 
 export const applyCommand = (cells: CellsState, command: Command): CellsState =>

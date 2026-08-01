@@ -13,9 +13,9 @@ export const DIGITS: readonly Digit[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
  * The mutable per-cell state of a board: values plus pencil marks.
  * Notes are digit bitmasks (bit 1 << d set means digit d is noted) — compact,
  * cheap to compare, and directly serializable. See src/game/notes.ts.
+ * Corner (Snyder) marks are the only pencil-mark style the app has.
  */
 export interface CellsState {
   values: CellValue[];
   corner: number[];
-  center: number[];
 }

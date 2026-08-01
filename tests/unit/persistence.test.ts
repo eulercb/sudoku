@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { revertCommand } from '../../src/game/commands';
+import { digitsToNotes } from '../../src/game/notes';
 import { emptyGame, fromPersistedGame, toPersistedGame } from '../../src/store/gameSlice';
 import { DEFAULT_SETTINGS, hydrateSettings } from '../../src/store/settingsSlice';
 import { fixtureGivens, fixtureSolution } from '../fixtures';
@@ -34,7 +36,6 @@ describe('game persistence', () => {
     game.cells = {
       values: fixtureGivens(),
       corner: new Array(81).fill(0),
-      center: new Array(81).fill(0),
     };
     game.status = 'playing';
     game.elapsedMs = 42_000;
@@ -50,6 +51,41 @@ describe('game persistence', () => {
     expect(restored.elapsedMs).toBe(42_000);
     expect(restored.selection).toEqual([]); // transient
     expect(restored.status).toBe('paused'); // resumes calmly
+  });
+
+  it('folds the center marks of a legacy save into its corner marks', () => {
+    const good = toPersistedGame(playedGame());
+    const empty = fixtureGivens().indexOf(0);
+    const legacy = {
+      ...good,
+      noteMode: 'center',
+      cells: {
+        ...good.cells,
+        corner: good.cells.corner.map((m, i) => (i === empty ? digitsToNotes([1]) : m)),
+        center: good.cells.corner.map((_, i) => (i === empty ? digitsToNotes([4, 5]) : 0)),
+      },
+      past: [
+        {
+          patches: [
+            {
+              index: empty,
+              before: { value: 0, corner: 0, center: 0 },
+              after: { value: 0, corner: digitsToNotes([1]), center: digitsToNotes([4, 5]) },
+            },
+          ],
+        },
+      ],
+    };
+
+    const restored = fromPersistedGame(JSON.parse(JSON.stringify(legacy)))!;
+    expect(restored).not.toBeNull();
+    // The retired submode collapses onto the one that is left.
+    expect(restored.noteMode).toBe('corner');
+    expect(restored.cells.corner[empty]).toBe(digitsToNotes([1, 4, 5]));
+    expect('center' in restored.cells).toBe(false);
+    // History migrates too, so undo stays an exact inverse of the merged board.
+    expect(restored.past[0]!.patches[0]!.after.corner).toBe(digitsToNotes([1, 4, 5]));
+    expect(revertCommand(restored.cells, restored.past[0]!).corner[empty]).toBe(0);
   });
 
   it('rejects malformed payloads', () => {

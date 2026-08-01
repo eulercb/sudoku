@@ -6,7 +6,6 @@ import type { CellsState } from '../../src/game/types';
 const freshCells = (): CellsState => ({
   values: new Array(81).fill(0),
   corner: new Array(81).fill(0),
-  center: new Array(81).fill(0),
 });
 
 describe('PatchBuilder', () => {
@@ -26,8 +25,8 @@ describe('PatchBuilder', () => {
     builder.set(4, { corner: digitsToNotes([1]) });
     const command = builder.build()!;
     expect(command.patches).toHaveLength(1);
-    expect(command.patches[0]!.before).toEqual({ value: 0, corner: 0, center: 0 });
-    expect(command.patches[0]!.after).toEqual({ value: 7, corner: digitsToNotes([1]), center: 0 });
+    expect(command.patches[0]!.before).toEqual({ value: 0, corner: 0 });
+    expect(command.patches[0]!.after).toEqual({ value: 7, corner: digitsToNotes([1]) });
   });
 
   it('reads through pending writes with current()', () => {
@@ -43,11 +42,11 @@ describe('apply / revert', () => {
   it('round-trips: revert(apply(x)) === x', () => {
     const cells = freshCells();
     cells.values[10] = 4;
-    cells.center[11] = digitsToNotes([2, 3]);
+    cells.corner[11] = digitsToNotes([2, 3]);
 
     const builder = new PatchBuilder(cells);
     builder.set(10, { value: 0 });
-    builder.set(11, { center: 0, corner: digitsToNotes([9]) });
+    builder.set(11, { corner: digitsToNotes([9]) });
     builder.set(12, { value: 8 });
     const command = builder.build()!;
 

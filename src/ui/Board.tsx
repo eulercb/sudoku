@@ -5,8 +5,8 @@ import { Cell } from './Cell';
 import styles from './Board.module.css';
 import {
   useActiveDigit,
-  useCenterMasks,
   useConflicts,
+  useCornerMasks,
   usePeerSet,
   useWrongCells,
 } from './useDerived';
@@ -31,18 +31,16 @@ const armedTool = (): boolean => {
 
 export function Board() {
   const values = useStore((s) => s.game.cells.values);
-  const corner = useStore((s) => s.game.cells.corner);
   const givens = useStore((s) => s.game.givens);
   const selection = useStore((s) => s.game.selection);
   const checkFlagged = useStore((s) => s.game.checkFlagged);
   const status = useStore((s) => s.game.status);
   const highlightSame = useStore((s) => s.settings.highlightSameDigit);
-  const autoCandidates = useStore((s) => s.settings.autoCandidates);
   const tapCell = useStore((s) => s.tapCell);
   const selectCell = useStore((s) => s.selectCell);
   const resume = useStore((s) => s.resume);
 
-  const centerMasks = useCenterMasks();
+  const cornerMasks = useCornerMasks();
   const conflicts = useConflicts();
   const wrongCells = useWrongCells();
   const peers = usePeerSet();
@@ -131,8 +129,7 @@ export function Board() {
                   index={i}
                   value={v}
                   given={givens[i] !== 0}
-                  cornerMask={autoCandidates ? 0 : corner[i]!}
-                  centerMask={centerMasks[i]!}
+                  cornerMask={cornerMasks[i]!}
                   selected={selectionSet.has(i)}
                   peer={peers.has(i)}
                   sameDigit={
