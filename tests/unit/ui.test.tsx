@@ -31,7 +31,6 @@ describe('Cell', () => {
     value: 0 as const,
     given: false,
     cornerMask: 0,
-    centerMask: 0,
     selected: false,
     peer: false,
     sameDigit: false,
@@ -44,14 +43,11 @@ describe('Cell', () => {
     expect(screen.getByRole('gridcell')).toHaveTextContent('7');
   });
 
-  it('renders corner and center marks for empty cells', () => {
-    render(
-      <Cell {...base} cornerMask={digitsToNotes([1, 9])} centerMask={digitsToNotes([4, 5])} />,
-    );
+  it('renders corner marks for empty cells', () => {
+    render(<Cell {...base} cornerMask={digitsToNotes([1, 4, 9])} />);
     const cell = screen.getByRole('gridcell');
-    expect(cell).toHaveTextContent('19');
-    expect(cell).toHaveTextContent('45');
-    expect(cell).toHaveAccessibleName(/notes 1 9 4 5/);
+    expect(cell).toHaveTextContent('149');
+    expect(cell).toHaveAccessibleName(/notes 1 4 9/);
   });
 
   it('hides content while paused', () => {

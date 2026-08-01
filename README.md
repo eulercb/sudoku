@@ -9,8 +9,8 @@ solvers; gentle enough for a first puzzle.
 - **Honest difficulty.** Four tiers (Easy / Medium / Hard / Expert) whose
   labels are technique-derived (via [`sudoku-gen`](https://www.npmjs.com/package/sudoku-gen)),
   never clue-count guesswork.
-- **Notes that actually work.** Corner (Snyder) and center marks, a pencil
-  toggle with submodes, multi-cell drag selection, fill-all-candidates,
+- **Notes that actually work.** Corner (Snyder) marks with a one-tap pencil
+  toggle, multi-cell drag selection, fill-all-candidates,
   auto-remove-on-placement, and a strict separation between app-managed and
   user-managed candidates — no half-synced pencil marks, ever.
 - **Minimalist by default, rich on demand.** The resting screen is a grid, a
@@ -25,7 +25,8 @@ solvers; gentle enough for a first puzzle.
 - Selection, peer, and same-digit highlighting; live, on-check, or no
   conflict/mistake feedback — every assist is a setting
 - Hints: reveal-a-cell or check-entries
-- Light / dark / sepia / high-contrast themes (+ four accents), system-aware
+- Light / dark / sepia / high-contrast themes (+ four accents), system-aware;
+  dark is true black (`#000`) so AMOLED screens stay unlit
 - Per-tier stats: wins, win rate, best & median times, daily streaks
 - Autosave to IndexedDB on every move; reload resumes exactly where you were
 - Installable PWA, fully playable offline after first load

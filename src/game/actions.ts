@@ -31,16 +31,13 @@ export function placeValue(
       builder.set(i, { value: 0 });
       continue;
     }
-    builder.set(i, { value: digit, corner: EMPTY_NOTES, center: EMPTY_NOTES });
+    builder.set(i, { value: digit, corner: EMPTY_NOTES });
     if (options.autoRemovePeers) {
       for (const p of PEERS[i]!) {
         const snap = builder.current(p);
         if (snap.value !== 0) continue;
-        if (hasNote(snap.corner, digit) || hasNote(snap.center, digit)) {
-          builder.set(p, {
-            corner: removeNote(snap.corner, digit),
-            center: removeNote(snap.center, digit),
-          });
+        if (hasNote(snap.corner, digit)) {
+          builder.set(p, { corner: removeNote(snap.corner, digit) });
         }
       }
     }
@@ -49,25 +46,23 @@ export function placeValue(
 }
 
 /**
- * Toggle a pencil mark across the selection. If the digit is present in every
- * eligible cell it is removed everywhere, otherwise added everywhere — the
- * standard multi-cell semantics. Cells with a value are skipped.
+ * Toggle a corner pencil mark across the selection. If the digit is present in
+ * every eligible cell it is removed everywhere, otherwise added everywhere —
+ * the standard multi-cell semantics. Cells with a value are skipped.
  */
 export function toggleMark(
   cells: CellsState,
   selection: readonly number[],
   editable: (i: number) => boolean,
   digit: Digit,
-  kind: 'corner' | 'center',
 ): Command | null {
   const builder = new PatchBuilder(cells);
   const targets = selection.filter((i) => editable(i) && builder.current(i).value === 0);
   if (targets.length === 0) return null;
-  const everyHas = targets.every((i) => hasNote(builder.current(i)[kind], digit));
+  const everyHas = targets.every((i) => hasNote(builder.current(i).corner, digit));
   for (const i of targets) {
-    const mask = builder.current(i)[kind];
-    const next = everyHas ? removeNote(mask, digit) : addNote(mask, digit);
-    builder.set(i, { [kind]: next });
+    const mask = builder.current(i).corner;
+    builder.set(i, { corner: everyHas ? removeNote(mask, digit) : addNote(mask, digit) });
   }
   return builder.build();
 }
@@ -88,18 +83,18 @@ export function eraseCells(
     if (snap.value !== 0) {
       builder.set(i, { value: 0 });
     } else {
-      builder.set(i, { corner: EMPTY_NOTES, center: EMPTY_NOTES });
+      builder.set(i, { corner: EMPTY_NOTES });
     }
   }
   return builder.build();
 }
 
-/** Fill every empty cell's center marks with its computed candidates. */
+/** Fill every empty cell's corner marks with its computed candidates. */
 export function fillAllCandidates(cells: CellsState): Command | null {
   const builder = new PatchBuilder(cells);
   const candidates = computeCandidates(cells.values);
   for (let i = 0; i < candidates.length; i++) {
-    if (cells.values[i] === 0) builder.set(i, { center: candidates[i]! });
+    if (cells.values[i] === 0) builder.set(i, { corner: candidates[i]! });
   }
   return builder.build();
 }
@@ -108,7 +103,7 @@ export function fillAllCandidates(cells: CellsState): Command | null {
 export function clearAllNotes(cells: CellsState): Command | null {
   const builder = new PatchBuilder(cells);
   for (let i = 0; i < cells.values.length; i++) {
-    builder.set(i, { corner: EMPTY_NOTES, center: EMPTY_NOTES });
+    builder.set(i, { corner: EMPTY_NOTES });
   }
   return builder.build();
 }
@@ -117,7 +112,7 @@ export function clearAllNotes(cells: CellsState): Command | null {
 export function clearBoard(cells: CellsState, editable: (i: number) => boolean): Command | null {
   const builder = new PatchBuilder(cells);
   for (let i = 0; i < cells.values.length; i++) {
-    if (editable(i)) builder.set(i, { value: 0, corner: EMPTY_NOTES, center: EMPTY_NOTES });
+    if (editable(i)) builder.set(i, { value: 0, corner: EMPTY_NOTES });
   }
   return builder.build();
 }
@@ -139,15 +134,12 @@ function placeValueAt(
   options: PlaceOptions,
 ): Command | null {
   const builder = new PatchBuilder(cells);
-  builder.set(index, { value: digit, corner: EMPTY_NOTES, center: EMPTY_NOTES });
+  builder.set(index, { value: digit, corner: EMPTY_NOTES });
   if (options.autoRemovePeers) {
     for (const p of PEERS[index]!) {
       const snap = builder.current(p);
       if (snap.value !== 0) continue;
-      builder.set(p, {
-        corner: removeNote(snap.corner, digit),
-        center: removeNote(snap.center, digit),
-      });
+      builder.set(p, { corner: removeNote(snap.corner, digit) });
     }
   }
   return builder.build();

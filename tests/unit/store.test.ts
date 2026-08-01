@@ -143,35 +143,28 @@ describe('placement', () => {
 });
 
 describe('notes', () => {
-  it('toggles corner and center marks via note mode', () => {
+  it('the pencil is a plain on/off toggle over corner marks', () => {
     const i = firstEmpty();
     s().selectCell(i);
-    s().setNoteMode('corner');
+    expect(s().game.noteMode).toBe('off');
+
+    s().togglePencil();
+    expect(s().game.noteMode).toBe('corner');
     s().applyDigit(3);
     expect(s().game.cells.corner[i]).not.toBe(0);
-    s().setNoteMode('center');
-    s().applyDigit(4);
-    expect(s().game.cells.center[i]).not.toBe(0);
     expect(s().game.cells.values[i]).toBe(0);
-  });
 
-  it('pencil toggle remembers the last submode', () => {
-    s().setNoteMode('center');
     s().togglePencil();
     expect(s().game.noteMode).toBe('off');
-    s().togglePencil();
-    expect(s().game.noteMode).toBe('center');
   });
 
   it('auto-candidate mode forces the pencil off and keeps digits placing values', () => {
     // Pencil active, then the user enables app-managed candidates.
-    s().setNoteMode('corner');
+    s().togglePencil();
     s().setSetting('autoCandidates', true);
     expect(s().game.noteMode).toBe('off'); // never mixed, never soft-locked
 
     // Pencil mode cannot be re-entered while auto candidates are on.
-    s().setNoteMode('center');
-    expect(s().game.noteMode).toBe('off');
     s().togglePencil();
     expect(s().game.noteMode).toBe('off');
 
@@ -188,16 +181,16 @@ describe('notes', () => {
     s().hydrate({ settings: { autoCandidates: true } });
     s().newGame('easy');
     expect(s().game.noteMode).toBe('off');
-    s().setNoteMode('corner');
+    s().togglePencil();
     expect(s().game.noteMode).toBe('off');
   });
 
-  it('fill notes writes candidates; clear notes wipes them', () => {
+  it('fill notes writes candidates as corner marks; clear notes wipes them', () => {
     s().fillNotes();
     const i = firstEmpty();
-    expect(s().game.cells.center[i]).not.toBe(0);
+    expect(s().game.cells.corner[i]).not.toBe(0);
     s().clearNotes();
-    expect(s().game.cells.center[i]).toBe(0);
+    expect(s().game.cells.corner[i]).toBe(0);
   });
 });
 

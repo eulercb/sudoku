@@ -9,7 +9,6 @@ interface CellProps {
   value: CellValue;
   given: boolean;
   cornerMask: number;
-  centerMask: number;
   selected: boolean;
   peer: boolean;
   sameDigit: boolean;
@@ -19,8 +18,8 @@ interface CellProps {
 
 /**
  * Corner marks fill anchor slots in reading order (Snyder style): corners
- * first, then edges, center last — so they only reach the middle when the
- * cell already holds nine marks and never sit on top of center marks.
+ * first, then edges, middle last — so a mark only reaches the middle of the
+ * cell when it already holds nine of them.
  */
 const CORNER_AREAS = ['tl', 'tr', 'bl', 'br', 'tc', 'bc', 'ml', 'mr', 'mc'] as const;
 
@@ -29,7 +28,6 @@ export const Cell = memo(function Cell({
   value,
   given,
   cornerMask,
-  centerMask,
   selected,
   peer,
   sameDigit,
@@ -39,7 +37,6 @@ export const Cell = memo(function Cell({
   const row = rowOf(index);
   const col = colOf(index);
   const cornerDigits = value === 0 ? notesToDigits(cornerMask) : [];
-  const centerDigits = value === 0 ? notesToDigits(centerMask) : [];
 
   const classes = [styles.cell];
   if (selected) classes.push(styles.selected!);
@@ -51,9 +48,8 @@ export const Cell = memo(function Cell({
   let label = `Row ${row + 1}, column ${col + 1}`;
   if (!hidden) {
     if (value !== 0) label += given ? `, given ${value}` : `, ${value}`;
-    else if (centerDigits.length + cornerDigits.length > 0) {
-      label += `, notes ${[...cornerDigits, ...centerDigits].join(' ')}`;
-    } else label += ', empty';
+    else if (cornerDigits.length > 0) label += `, notes ${cornerDigits.join(' ')}`;
+    else label += ', empty';
   }
 
   return (
@@ -68,24 +64,15 @@ export const Cell = memo(function Cell({
     >
       {hidden ? null : value !== 0 ? (
         <span className={styles.value}>{value}</span>
-      ) : (
-        <>
-          {cornerDigits.length > 0 && (
-            <span className={styles.corner} aria-hidden="true">
-              {cornerDigits.map((d, slot) => (
-                <i key={d} className={styles[`c-${CORNER_AREAS[slot]!}`]}>
-                  {d}
-                </i>
-              ))}
-            </span>
-          )}
-          {centerDigits.length > 0 && (
-            <span className={styles.center} data-count={centerDigits.length} aria-hidden="true">
-              {centerDigits.join('')}
-            </span>
-          )}
-        </>
-      )}
+      ) : cornerDigits.length > 0 ? (
+        <span className={styles.corner} aria-hidden="true">
+          {cornerDigits.map((d, slot) => (
+            <i key={d} className={styles[`c-${CORNER_AREAS[slot]!}`]}>
+              {d}
+            </i>
+          ))}
+        </span>
+      ) : null}
     </div>
   );
 });

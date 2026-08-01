@@ -15,7 +15,7 @@ import { applyCommand, revertCommand } from '../game/commands';
 import type { Digit, Tier } from '../game/types';
 import { newPuzzle } from '../puzzles';
 import { vibrate } from '../pwa/haptics';
-import type { GameState, NoteMode } from './gameSlice';
+import type { GameState } from './gameSlice';
 import { emptyGame, fromPersistedGame, HISTORY_LIMIT } from './gameSlice';
 import type { SettingsState } from './settingsSlice';
 import { DEFAULT_SETTINGS, hydrateSettings } from './settingsSlice';
@@ -55,7 +55,7 @@ export interface Store {
   selectCell(index: number, mode?: 'replace' | 'append' | 'toggle'): void;
   clearSelection(): void;
   moveCursor(dRow: number, dCol: number, extend?: boolean): void;
-  setNoteMode(mode: NoteMode): void;
+  /** The Notes button: a plain on/off switch over corner pencil marks. */
   togglePencil(): void;
   armDigit(digit: Digit): void;
   toggleArmedErase(): void;
@@ -175,7 +175,7 @@ export const useStore = create<Store>()((set, get) => {
     // with auto-candidates on, digits always place values (note mode is
     // forced off elsewhere, this is the safety net for stale state).
     if (game.noteMode !== 'off' && !settings.autoCandidates) {
-      const command = toggleMark(game.cells, targets, editable, digit, game.noteMode);
+      const command = toggleMark(game.cells, targets, editable, digit);
       if (command) commit(command);
       return;
     }
@@ -225,7 +225,6 @@ export const useStore = create<Store>()((set, get) => {
           givens: puzzle.givens,
           solution: puzzle.solution,
           cells: { ...base.cells, values: puzzle.givens.slice() },
-          lastNoteKind: state.game.lastNoteKind,
           status: 'playing',
         },
         stats: recordStart(state.stats, tier),
@@ -242,7 +241,6 @@ export const useStore = create<Store>()((set, get) => {
           cells: {
             values: game.givens.slice(),
             corner: new Array<number>(CELLS).fill(0),
-            center: new Array<number>(CELLS).fill(0),
           },
           past: [],
           future: [],
@@ -336,22 +334,11 @@ export const useStore = create<Store>()((set, get) => {
       set({ game: { ...game, selection } });
     },
 
-    setNoteMode(mode) {
-      const { game, settings } = get();
-      // Pencil modes don't exist while the app manages candidates.
-      if (settings.autoCandidates && mode !== 'off') return;
-      set({
-        game: {
-          ...game,
-          noteMode: mode,
-          lastNoteKind: mode === 'off' ? game.lastNoteKind : mode,
-        },
-      });
-    },
-
     togglePencil() {
-      const { game } = get();
-      get().setNoteMode(game.noteMode === 'off' ? game.lastNoteKind : 'off');
+      const { game, settings } = get();
+      // The pencil doesn't exist while the app manages candidates.
+      if (settings.autoCandidates && game.noteMode === 'off') return;
+      set({ game: { ...game, noteMode: game.noteMode === 'off' ? 'corner' : 'off' } });
     },
 
     armDigit(digit) {

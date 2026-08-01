@@ -1,10 +1,6 @@
 import { useStore } from '../store';
-import type { NoteKind } from '../store/gameSlice';
 import { EraseIcon, HintIcon, NotesIcon, PencilIcon, RedoIcon, UndoIcon } from './icons';
-import { radioGroupKeyDown } from './radioGroup';
 import styles from './Controls.module.css';
-
-const NOTE_KINDS: readonly NoteKind[] = ['corner', 'center'];
 
 export function Controls() {
   const playing = useStore((s) => s.game.status === 'playing');
@@ -18,40 +14,11 @@ export function Controls() {
   const redo = useStore((s) => s.redo);
   const padErase = useStore((s) => s.padErase);
   const togglePencil = useStore((s) => s.togglePencil);
-  const setNoteMode = useStore((s) => s.setNoteMode);
   const fillNotes = useStore((s) => s.fillNotes);
   const hint = useStore((s) => s.hint);
 
   return (
     <div className={styles.controls}>
-      {/* Pencil submode appears only while the pencil is active. */}
-      <div
-        className={`${styles.submode} ${noteMode !== 'off' ? styles.submodeOpen : ''}`}
-        aria-hidden={noteMode === 'off'}
-      >
-        <div
-          role="radiogroup"
-          aria-label="Pencil mark style"
-          className={styles.segment}
-          onKeyDown={(e) => {
-            if (noteMode !== 'off') radioGroupKeyDown(e, NOTE_KINDS, noteMode, setNoteMode);
-          }}
-        >
-          {NOTE_KINDS.map((kind) => (
-            <button
-              key={kind}
-              role="radio"
-              aria-checked={noteMode === kind}
-              className={noteMode === kind ? styles.segmentOn : ''}
-              onClick={() => setNoteMode(kind)}
-              tabIndex={noteMode === kind ? 0 : -1}
-            >
-              {kind === 'corner' ? 'Corner' : 'Center'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className={styles.row} role="toolbar" aria-label="Game controls">
         <button
           className={styles.button}
@@ -86,7 +53,7 @@ export function Controls() {
             className={`${styles.button} ${noteMode !== 'off' ? styles.active : ''}`}
             onClick={togglePencil}
             disabled={!playing}
-            aria-label="Notes, pencil marks"
+            aria-label="Notes, corner pencil marks"
             aria-pressed={noteMode !== 'off'}
           >
             <PencilIcon />
@@ -98,7 +65,7 @@ export function Controls() {
             className={styles.button}
             onClick={fillNotes}
             disabled={!playing}
-            aria-label="Auto notes: fill all candidates"
+            aria-label="Auto notes: fill all candidates as corner marks"
           >
             <NotesIcon />
             <span>Auto</span>

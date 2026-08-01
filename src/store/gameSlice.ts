@@ -1,9 +1,9 @@
-import type { Command } from '../game/commands';
+import type { CellSnapshot, Command } from '../game/commands';
 import type { CellsState, CellValue, Digit, Tier } from '../game/types';
 import { TIERS } from '../game/types';
 
-export type NoteMode = 'off' | 'corner' | 'center';
-export type NoteKind = 'corner' | 'center';
+/** Pencil marks are corner (Snyder) marks only; the pencil is a plain toggle. */
+export type NoteMode = 'off' | 'corner';
 export type GameStatus = 'idle' | 'playing' | 'paused' | 'won';
 
 export interface GameState {
@@ -18,8 +18,6 @@ export interface GameState {
   /** Selected cell indices; the last one is the keyboard cursor anchor. */
   selection: number[];
   noteMode: NoteMode;
-  /** Remembered pencil submode so the toggle returns to it. */
-  lastNoteKind: NoteKind;
   /** Digit armed in number-first input mode. */
   armedDigit: Digit | null;
   armedErase: boolean;
@@ -45,7 +43,6 @@ const EMPTY_BOARD: CellValue[] = new Array<CellValue>(81).fill(0);
 export const emptyCells = (): CellsState => ({
   values: EMPTY_BOARD.slice(),
   corner: new Array<number>(81).fill(0),
-  center: new Array<number>(81).fill(0),
 });
 
 export const emptyGame = (): GameState => ({
@@ -58,7 +55,6 @@ export const emptyGame = (): GameState => ({
   future: [],
   selection: [],
   noteMode: 'off',
-  lastNoteKind: 'corner',
   armedDigit: null,
   armedErase: false,
   elapsedMs: 0,
@@ -99,7 +95,37 @@ const isCommandArray = (a: unknown): a is Command[] =>
   a.every((c) => c && typeof c === 'object' && Array.isArray((c as Partial<Command>).patches));
 
 const STATUSES: readonly GameStatus[] = ['idle', 'playing', 'paused', 'won'];
-const NOTE_MODES: readonly NoteMode[] = ['off', 'corner', 'center'];
+/** 'center' is a retired mode kept here so older saves still hydrate. */
+const NOTE_MODES: readonly string[] = ['off', 'corner', 'center'];
+
+/**
+ * Saves written before center marks were retired carry a parallel `center`
+ * mask per cell (on the board and inside every history snapshot). Fold those
+ * marks into the corner mask so nothing the player noted is lost and undo
+ * stays an exact inverse.
+ */
+function mergeLegacyCenter(cells: CellsState & { center?: unknown }): CellsState {
+  const legacy = cells.center;
+  if (!isMaskArray(legacy)) return { values: cells.values, corner: cells.corner };
+  return {
+    values: cells.values,
+    corner: cells.corner.map((mask, i) => mask | legacy[i]!),
+  };
+}
+
+function mergeLegacyCenterInCommands(commands: Command[]): Command[] {
+  const fold = (snap: CellSnapshot & { center?: unknown }): CellSnapshot => ({
+    value: snap.value,
+    corner: snap.corner | (typeof snap.center === 'number' ? snap.center : 0),
+  });
+  return commands.map((command) => ({
+    patches: command.patches.map((patch) => ({
+      index: patch.index,
+      before: fold(patch.before),
+      after: fold(patch.after),
+    })),
+  }));
+}
 
 /**
  * Rebuild a GameState from an untrusted persisted record. Anything
@@ -118,7 +144,6 @@ export function fromPersistedGame(persisted: unknown): GameState | null {
     !p.cells ||
     !isCellValueArray(p.cells.values) ||
     !isMaskArray(p.cells.corner) ||
-    !isMaskArray(p.cells.center) ||
     !isCommandArray(p.past) ||
     !isCommandArray(p.future) ||
     typeof p.elapsedMs !== 'number' ||
@@ -126,7 +151,7 @@ export function fromPersistedGame(persisted: unknown): GameState | null {
     typeof p.mistakes !== 'number' ||
     typeof p.hintsUsed !== 'number' ||
     !STATUSES.includes(p.status as GameStatus) ||
-    !NOTE_MODES.includes(p.noteMode as NoteMode)
+    !NOTE_MODES.includes(p.noteMode as string)
   ) {
     return null;
   }
@@ -134,7 +159,11 @@ export function fromPersistedGame(persisted: unknown): GameState | null {
   const game: GameState = {
     ...base,
     ...p,
-    lastNoteKind: p.lastNoteKind === 'center' ? 'center' : 'corner',
+    cells: mergeLegacyCenter(p.cells),
+    past: mergeLegacyCenterInCommands(p.past),
+    future: mergeLegacyCenterInCommands(p.future),
+    // The retired 'center' submode lands on the one pencil mode that is left.
+    noteMode: p.noteMode === 'off' ? 'off' : 'corner',
     winDismissed: p.winDismissed === true,
     selection: [],
     armedDigit: null,
