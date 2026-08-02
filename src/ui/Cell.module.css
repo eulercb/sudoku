@@ -70,30 +70,31 @@
   place-items: center;
 }
 
-.c-tl {
+/* Fixed slots: each digit always lands on its own square of the 3×3 lattice. */
+.d-1 {
   grid-area: 1 / 1;
 }
-.c-tc {
+.d-2 {
   grid-area: 1 / 2;
 }
-.c-tr {
+.d-3 {
   grid-area: 1 / 3;
 }
-.c-ml {
+.d-4 {
   grid-area: 2 / 1;
 }
-.c-mc {
+.d-5 {
   grid-area: 2 / 2;
 }
-.c-mr {
+.d-6 {
   grid-area: 2 / 3;
 }
-.c-bl {
+.d-7 {
   grid-area: 3 / 1;
 }
-.c-bc {
+.d-8 {
   grid-area: 3 / 2;
 }
-.c-br {
+.d-9 {
   grid-area: 3 / 3;
 }

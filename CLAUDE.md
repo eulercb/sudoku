@@ -69,6 +69,10 @@ tests/
   toggle and every notes feature (Auto/fill-all-candidates, auto-remove,
   clear-notes, app-managed candidates) writes or reads `cells.corner`.
   Legacy saves carrying a `center` mask are folded into `corner` on hydration.
+  Marks render in **fixed positions**: a 3×3 lattice where digit _d_ always
+  occupies slot _d_ (1 top-left, 5 centre, 9 bottom-right) and missing digits
+  leave their slot blank, so position alone identifies a mark (`Cell.module.css`
+  `.d-1`…`.d-9`).
 - **Two candidate modes, never mixed** (`settings.autoCandidates`):
   - ON (app-managed): corner marks are _derived_ at render time
     (`useCornerMasks`), hand-editing disabled, stored user notes untouched.

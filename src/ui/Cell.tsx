@@ -17,11 +17,11 @@ interface CellProps {
 }
 
 /**
- * Corner marks fill anchor slots in reading order (Snyder style): corners
- * first, then edges, middle last — so a mark only reaches the middle of the
- * cell when it already holds nine of them.
+ * Every digit owns a fixed slot in a 3×3 lattice (1 top-left … 9 bottom-right)
+ * so a mark sits in the same place whatever else the cell holds; absent digits
+ * simply leave their slot empty. Position alone identifies the digit, which is
+ * what makes scanning a grid of pencil marks fast.
  */
-const CORNER_AREAS = ['tl', 'tr', 'bl', 'br', 'tc', 'bc', 'ml', 'mr', 'mc'] as const;
 
 export const Cell = memo(function Cell({
   index,
@@ -66,8 +66,8 @@ export const Cell = memo(function Cell({
         <span className={styles.value}>{value}</span>
       ) : cornerDigits.length > 0 ? (
         <span className={styles.corner} aria-hidden="true">
-          {cornerDigits.map((d, slot) => (
-            <i key={d} className={styles[`c-${CORNER_AREAS[slot]!}`]}>
+          {cornerDigits.map((d) => (
+            <i key={d} className={styles[`d-${d}`]}>
               {d}
             </i>
           ))}
