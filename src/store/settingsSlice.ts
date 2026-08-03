@@ -4,6 +4,15 @@ export type InputMode = 'cell-first' | 'number-first';
 export type ConflictHighlight = 'off' | 'on-error' | 'on-check';
 export type MistakeChecking = 'off' | 'warn' | 'on-request';
 export type HintStyle = 'reveal-cell' | 'check-entries';
+export type PadLayout = 'row' | 'grid';
+
+/**
+ * How many undos in a row are allowed before a fresh move is required.
+ * 0 is unlimited. The history itself is never truncated by this — the cap is
+ * self-imposed friction, not data loss.
+ */
+export const UNDO_LIMITS = [0, 3, 5, 10] as const;
+export type UndoLimit = (typeof UNDO_LIMITS)[number];
 
 export interface SettingsState {
   theme: ThemeName;
@@ -17,8 +26,14 @@ export interface SettingsState {
   autoRemovePeers: boolean;
   mistakeChecking: MistakeChecking;
   hintStyle: HintStyle;
+  /** Keep the Hint button in the control row (off = no hint affordance at all). */
+  showHintButton: boolean;
   showTimer: boolean;
   removeCompletedDigits: boolean;
+  /** Number pad shape: one row of nine, or a 3×3 block. */
+  padLayout: PadLayout;
+  /** Consecutive-undo cap; 0 = unlimited. */
+  undoLimit: UndoLimit;
   wakeLock: boolean;
   haptics: boolean;
 }
@@ -35,8 +50,11 @@ export const DEFAULT_SETTINGS: SettingsState = {
   autoRemovePeers: true,
   mistakeChecking: 'warn',
   hintStyle: 'reveal-cell',
+  showHintButton: true,
   showTimer: true,
   removeCompletedDigits: true,
+  padLayout: 'row',
+  undoLimit: 0,
   wakeLock: true,
   haptics: true,
 };
@@ -51,6 +69,12 @@ export function hydrateSettings(persisted: unknown): SettingsState {
         (out as Record<string, unknown>)[key] = value;
       }
     }
+  }
+  // These two gate control flow (pad shape, undo availability), so a stale or
+  // hand-edited value falls back rather than soft-locking the button.
+  if (!UNDO_LIMITS.includes(out.undoLimit)) out.undoLimit = DEFAULT_SETTINGS.undoLimit;
+  if (out.padLayout !== 'row' && out.padLayout !== 'grid') {
+    out.padLayout = DEFAULT_SETTINGS.padLayout;
   }
   return out;
 }

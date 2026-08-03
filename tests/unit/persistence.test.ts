@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { emptyActionStats, recordAction } from '../../src/game/actionLog';
 import { revertCommand } from '../../src/game/commands';
 import { digitsToNotes } from '../../src/game/notes';
 import { emptyGame, fromPersistedGame, toPersistedGame } from '../../src/store/gameSlice';
@@ -23,6 +24,18 @@ describe('settings hydration', () => {
     expect(merged.haptics).toBe(false);
     expect(merged.showTimer).toBe(DEFAULT_SETTINGS.showTimer);
     expect('bogus' in merged).toBe(false);
+  });
+
+  it('keeps the new layout and undo settings, rejecting values it cannot honor', () => {
+    const kept = hydrateSettings({ padLayout: 'grid', undoLimit: 5, showHintButton: false });
+    expect(kept.padLayout).toBe('grid');
+    expect(kept.undoLimit).toBe(5);
+    expect(kept.showHintButton).toBe(false);
+
+    // A junk value here would soft-lock the pad or the undo button.
+    const fallback = hydrateSettings({ padLayout: 'hexagon', undoLimit: -2 });
+    expect(fallback.padLayout).toBe(DEFAULT_SETTINGS.padLayout);
+    expect(fallback.undoLimit).toBe(DEFAULT_SETTINGS.undoLimit);
   });
 });
 
@@ -51,6 +64,33 @@ describe('game persistence', () => {
     expect(restored.elapsedMs).toBe(42_000);
     expect(restored.selection).toEqual([]); // transient
     expect(restored.status).toBe('paused'); // resumes calmly
+  });
+
+  it('carries the action record and undo streak across a save', () => {
+    const game = playedGame();
+    game.undoStreak = 2;
+    game.actionStats = recordAction(game.actionStats, {
+      type: 'place',
+      at: 1200,
+      digit: 4,
+      cells: 1,
+      wrong: 1,
+    });
+
+    const restored = fromPersistedGame(JSON.parse(JSON.stringify(toPersistedGame(game))))!;
+    expect(restored.undoStreak).toBe(2);
+    expect(restored.actionStats).toEqual(game.actionStats);
+  });
+
+  it('starts a fresh action record for saves written before tracking existed', () => {
+    const legacy = JSON.parse(JSON.stringify(toPersistedGame(playedGame())));
+    delete legacy.actionStats;
+    delete legacy.undoStreak;
+
+    const restored = fromPersistedGame(legacy)!;
+    expect(restored).not.toBeNull();
+    expect(restored.actionStats).toEqual(emptyActionStats());
+    expect(restored.undoStreak).toBe(0);
   });
 
   it('folds the center marks of a legacy save into its corner marks', () => {

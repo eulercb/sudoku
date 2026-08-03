@@ -6,7 +6,7 @@
 
 .board {
   position: relative;
-  width: min(100%, 60dvh, 31rem);
+  width: min(100%, var(--board-cap, 60dvh), 31rem);
   aspect-ratio: 1;
   container-type: inline-size;
 

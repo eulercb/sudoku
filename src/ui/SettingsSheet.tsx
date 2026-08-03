@@ -80,6 +80,16 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           ]}
           onChange={(v) => setSetting('inputMode', v)}
         />
+        <ChoiceRow
+          label="Number pad"
+          hint="One row of nine, or a 3×3 block like a sudoku box"
+          value={settings.padLayout}
+          options={[
+            { value: 'row', label: 'One row' },
+            { value: 'grid', label: '3 × 3' },
+          ]}
+          onChange={(v) => setSetting('padLayout', v)}
+        />
         <ToggleRow
           label="Hide completed numbers"
           hint="Fade a number from the pad once all nine are placed"
@@ -111,14 +121,34 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           ]}
           onChange={(v) => setSetting('conflictHighlight', v)}
         />
+        <ToggleRow
+          label="Show hint button"
+          hint="Off keeps the control row free of any hint affordance"
+          checked={settings.showHintButton}
+          onChange={(v) => setSetting('showHintButton', v)}
+        />
+        {settings.showHintButton && (
+          <ChoiceRow
+            label="Hint button"
+            value={settings.hintStyle}
+            options={[
+              { value: 'reveal-cell', label: 'Reveal a cell' },
+              { value: 'check-entries', label: 'Check entries' },
+            ]}
+            onChange={(v) => setSetting('hintStyle', v)}
+          />
+        )}
         <ChoiceRow
-          label="Hint button"
-          value={settings.hintStyle}
+          label="Undo limit"
+          hint="Undos in a row before a new move is needed; the history is kept whole"
+          value={settings.undoLimit}
           options={[
-            { value: 'reveal-cell', label: 'Reveal a cell' },
-            { value: 'check-entries', label: 'Check entries' },
+            { value: 0, label: 'Unlimited' },
+            { value: 3, label: '3' },
+            { value: 5, label: '5' },
+            { value: 10, label: '10' },
           ]}
-          onChange={(v) => setSetting('hintStyle', v)}
+          onChange={(v) => setSetting('undoLimit', v)}
         />
         <ToggleRow
           label="Highlight row, column & box"

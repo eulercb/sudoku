@@ -8,6 +8,8 @@ import {
   revealCell,
   toggleMark,
 } from '../game/actions';
+import type { ActionEntry } from '../game/actionLog';
+import { emptyActionStats, recordAction } from '../game/actionLog';
 import { CELLS, colOf, rowOf, cellIndex } from '../game/board';
 import { findConflicts, findMistakes, isSolved } from '../game/checks';
 import type { Command } from '../game/commands';
@@ -16,7 +18,7 @@ import type { Digit, Tier } from '../game/types';
 import { newPuzzle } from '../puzzles';
 import { vibrate } from '../pwa/haptics';
 import type { GameState } from './gameSlice';
-import { emptyGame, fromPersistedGame, HISTORY_LIMIT } from './gameSlice';
+import { canUndo, emptyGame, fromPersistedGame, HISTORY_LIMIT } from './gameSlice';
 import type { SettingsState } from './settingsSlice';
 import { DEFAULT_SETTINGS, hydrateSettings } from './settingsSlice';
 import type { StatsState } from './statsSlice';
@@ -93,6 +95,8 @@ interface CommitMeta {
   /** Set when the command placed this digit into these cells as values. */
   placed?: { digit: Digit; indices: number[] };
   countsAsHint?: boolean;
+  /** What to write to the action log; commit stamps the game clock on it. */
+  action?: Omit<ActionEntry, 'at'>;
 }
 
 export const useStore = create<Store>()((set, get) => {
@@ -102,21 +106,27 @@ export const useStore = create<Store>()((set, get) => {
     const cells = applyCommand(game.cells, command);
     const past = [...game.past, command].slice(-HISTORY_LIMIT);
 
-    let mistakes = game.mistakes;
-    let wrong = false;
-    if (meta.placed && settings.mistakeChecking === 'warn') {
+    // Cells this command actually filled, and how many of them contradict the
+    // solution. The wrong count always accrues so the post-game report can be
+    // honest; only warn mode surfaces it during play, so no oracle leaks.
+    let filled = 0;
+    let wrongCount = 0;
+    if (meta.placed) {
       for (const patch of command.patches) {
         if (
-          patch.after.value === meta.placed.digit &&
-          patch.before.value !== patch.after.value &&
-          meta.placed.indices.includes(patch.index) &&
-          game.solution[patch.index] !== patch.after.value
+          patch.after.value !== meta.placed.digit ||
+          patch.before.value === patch.after.value ||
+          !meta.placed.indices.includes(patch.index)
         ) {
-          mistakes += 1;
-          wrong = true;
+          continue;
         }
+        filled += 1;
+        if (game.solution[patch.index] !== patch.after.value) wrongCount += 1;
       }
     }
+    const warning = settings.mistakeChecking === 'warn';
+    const mistakes = warning ? game.mistakes + wrongCount : game.mistakes;
+    const wrong = warning && wrongCount > 0;
 
     let conflicted = false;
     if (meta.placed && settings.conflictHighlight === 'on-error') {
@@ -124,8 +134,18 @@ export const useStore = create<Store>()((set, get) => {
       conflicted = meta.placed.indices.some((i) => conflicts.has(i));
     }
 
+    const at = foldElapsed(game);
     const won = game.status === 'playing' && isSolved(cells.values, game.solution);
-    const elapsedMs = won ? foldElapsed(game) : game.elapsedMs;
+    const elapsedMs = won ? at : game.elapsedMs;
+
+    const actionStats = meta.action
+      ? recordAction(game.actionStats, {
+          ...meta.action,
+          at,
+          cells: meta.action.cells ?? (meta.placed ? filled : command.patches.length),
+          ...(meta.placed ? { wrong: wrongCount } : {}),
+        })
+      : game.actionStats;
 
     let nextStats: StatsState = stats;
     if (won) {
@@ -154,6 +174,9 @@ export const useStore = create<Store>()((set, get) => {
         elapsedMs,
         lastTickAt: won ? null : game.lastTickAt,
         hintsUsed: game.hintsUsed + (meta.countsAsHint ? 1 : 0),
+        // A new move is what buys back a capped undo allowance.
+        undoStreak: 0,
+        actionStats,
         checkFlagged: [],
         status: won ? 'won' : game.status,
       },
@@ -166,6 +189,32 @@ export const useStore = create<Store>()((set, get) => {
     }
   };
 
+  /** Log an action that isn't a board command (undo, check, pause…). */
+  const logAction = (entry: Omit<ActionEntry, 'at'>): void => {
+    const { game } = get();
+    set({
+      game: {
+        ...game,
+        actionStats: recordAction(game.actionStats, { ...entry, at: foldElapsed(game) }),
+      },
+    });
+  };
+
+  /** Flag mistakes/conflicts without logging — both Check and Hint use it. */
+  const runCheck = (): void => {
+    const { game, settings } = get();
+    const flagged = new Set<number>();
+    // Solution-based checking is oracle information; a veteran who turned
+    // mistake checking off gets rule conflicts only.
+    if (settings.mistakeChecking !== 'off') {
+      for (const i of findMistakes(game.cells.values, game.solution)) flagged.add(i);
+    }
+    if (settings.conflictHighlight !== 'off') {
+      for (const i of findConflicts(game.cells.values)) flagged.add(i);
+    }
+    set({ game: { ...game, checkFlagged: [...flagged] } });
+  };
+
   const applyDigitTo = (digit: Digit, targets: readonly number[]): void => {
     const { game, settings } = get();
     if (game.status !== 'playing' || targets.length === 0) return;
@@ -176,21 +225,26 @@ export const useStore = create<Store>()((set, get) => {
     // forced off elsewhere, this is the safety net for stale state).
     if (game.noteMode !== 'off' && !settings.autoCandidates) {
       const command = toggleMark(game.cells, targets, editable, digit);
-      if (command) commit(command);
+      if (command) commit(command, { action: { type: 'note', digit } });
       return;
     }
 
     const command = placeValue(game.cells, targets, editable, digit, {
       autoRemovePeers: settings.autoRemovePeers && !settings.autoCandidates,
     });
-    if (command) commit(command, { placed: { digit, indices: [...targets] } });
+    if (command) {
+      commit(command, {
+        placed: { digit, indices: [...targets] },
+        action: { type: 'place', digit },
+      });
+    }
   };
 
   const eraseAt = (targets: readonly number[]): void => {
     const { game } = get();
     if (game.status !== 'playing' || targets.length === 0) return;
     const command = eraseCells(game.cells, targets, (i) => isEditable(game, i));
-    if (command) commit(command);
+    if (command) commit(command, { action: { type: 'erase' } });
   };
 
   return {
@@ -248,6 +302,9 @@ export const useStore = create<Store>()((set, get) => {
           lastTickAt: null,
           mistakes: 0,
           hintsUsed: 0,
+          undoStreak: 0,
+          // The same puzzle from scratch: its record starts over too.
+          actionStats: emptyActionStats(),
           status: 'playing',
           checkFlagged: [],
           winDismissed: false,
@@ -262,12 +319,14 @@ export const useStore = create<Store>()((set, get) => {
       set({
         game: { ...game, elapsedMs: foldElapsed(game), lastTickAt: null, status: 'paused' },
       });
+      logAction({ type: 'pause' });
     },
 
     resume() {
       const { game } = get();
       if (game.status === 'paused') {
         set({ game: { ...game, status: 'playing', lastTickAt: null } });
+        logAction({ type: 'resume' });
       }
     },
 
@@ -339,6 +398,7 @@ export const useStore = create<Store>()((set, get) => {
       // The pencil doesn't exist while the app manages candidates.
       if (settings.autoCandidates && game.noteMode === 'off') return;
       set({ game: { ...game, noteMode: game.noteMode === 'off' ? 'corner' : 'off' } });
+      logAction({ type: 'pencil' });
     },
 
     armDigit(digit) {
@@ -403,8 +463,11 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     undo() {
-      const { game } = get();
+      const { game, settings } = get();
       if (game.status !== 'playing' || game.past.length === 0) return;
+      // The cap is self-imposed friction, not data loss: the history stays
+      // whole, but stepping further back requires making a move first.
+      if (!canUndo(game, settings.undoLimit)) return;
       const command = game.past[game.past.length - 1]!;
       set({
         game: {
@@ -412,6 +475,12 @@ export const useStore = create<Store>()((set, get) => {
           cells: revertCommand(game.cells, command),
           past: game.past.slice(0, -1),
           future: [command, ...game.future],
+          undoStreak: game.undoStreak + 1,
+          actionStats: recordAction(game.actionStats, {
+            type: 'undo',
+            at: foldElapsed(game),
+            cells: command.patches.length,
+          }),
           checkFlagged: [],
         },
       });
@@ -422,14 +491,22 @@ export const useStore = create<Store>()((set, get) => {
       if (game.status !== 'playing' || game.future.length === 0) return;
       const command = game.future[0]!;
       const cells = applyCommand(game.cells, command);
+      const at = foldElapsed(game);
       const won = isSolved(cells.values, game.solution);
-      const elapsedMs = won ? foldElapsed(game) : game.elapsedMs;
+      const elapsedMs = won ? at : game.elapsedMs;
       set({
         game: {
           ...game,
           cells,
           past: [...game.past, command],
           future: game.future.slice(1),
+          // Redo walks back toward the furthest point, so it repays the cap.
+          undoStreak: Math.max(0, game.undoStreak - 1),
+          actionStats: recordAction(game.actionStats, {
+            type: 'redo',
+            at,
+            cells: command.patches.length,
+          }),
           checkFlagged: [],
           elapsedMs,
           lastTickAt: won ? null : game.lastTickAt,
@@ -444,29 +521,31 @@ export const useStore = create<Store>()((set, get) => {
       const { game, settings } = get();
       if (game.status !== 'playing' || settings.autoCandidates) return;
       const command = fillAllCandidates(game.cells);
-      if (command) commit(command);
+      if (command) commit(command, { action: { type: 'auto-notes' } });
     },
 
     clearNotes() {
       const { game } = get();
       if (game.status !== 'playing') return;
       const command = clearAllNotes(game.cells);
-      if (command) commit(command);
+      if (command) commit(command, { action: { type: 'clear-notes' } });
     },
 
     clearBoard() {
       const { game } = get();
       if (game.status !== 'playing') return;
       const command = buildClearBoard(game.cells, (i) => isEditable(game, i));
-      if (command) commit(command);
+      if (command) commit(command, { action: { type: 'clear-board' } });
     },
 
     hint() {
       const { game, settings } = get();
       if (game.status !== 'playing') return;
       if (settings.hintStyle === 'check-entries') {
-        get().checkNow();
+        // One press, one logged action: the check rides along under 'hint'.
+        runCheck();
         set({ game: { ...get().game, hintsUsed: get().game.hintsUsed + 1 } });
+        logAction({ type: 'hint' });
         return;
       }
 
@@ -484,24 +563,15 @@ export const useStore = create<Store>()((set, get) => {
         autoRemovePeers: settings.autoRemovePeers && !settings.autoCandidates,
       });
       if (command) {
-        commit(command, { countsAsHint: true });
+        commit(command, { countsAsHint: true, action: { type: 'hint', digit, cells: 1 } });
         set({ game: { ...get().game, selection: [target] } });
       }
     },
 
     checkNow() {
-      const { game, settings } = get();
-      if (game.status !== 'playing') return;
-      const flagged = new Set<number>();
-      // Solution-based checking is oracle information; a veteran who turned
-      // mistake checking off gets rule conflicts only.
-      if (settings.mistakeChecking !== 'off') {
-        for (const i of findMistakes(game.cells.values, game.solution)) flagged.add(i);
-      }
-      if (settings.conflictHighlight !== 'off') {
-        for (const i of findConflicts(game.cells.values)) flagged.add(i);
-      }
-      set({ game: { ...game, checkFlagged: [...flagged] } });
+      if (get().game.status !== 'playing') return;
+      runCheck();
+      logAction({ type: 'check' });
     },
 
     setSetting(key, value) {
