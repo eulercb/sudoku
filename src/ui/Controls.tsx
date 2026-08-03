@@ -1,15 +1,21 @@
 import { useStore } from '../store';
+import { canUndo as undoAllowed } from '../store/gameSlice';
 import { EraseIcon, HintIcon, NotesIcon, PencilIcon, RedoIcon, UndoIcon } from './icons';
 import styles from './Controls.module.css';
 
 export function Controls() {
   const playing = useStore((s) => s.game.status === 'playing');
-  const canUndo = useStore((s) => s.game.past.length > 0);
+  const canUndo = useStore((s) => undoAllowed(s.game, s.settings.undoLimit));
+  // Capped rather than empty: the history is still there, the allowance isn't.
+  const undoCapped = useStore(
+    (s) => s.settings.undoLimit > 0 && s.game.undoStreak >= s.settings.undoLimit,
+  );
   const canRedo = useStore((s) => s.game.future.length > 0);
   const noteMode = useStore((s) => s.game.noteMode);
   const armedErase = useStore((s) => s.game.armedErase);
   const autoCandidates = useStore((s) => s.settings.autoCandidates);
   const hintStyle = useStore((s) => s.settings.hintStyle);
+  const showHintButton = useStore((s) => s.settings.showHintButton);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const padErase = useStore((s) => s.padErase);
@@ -24,7 +30,7 @@ export function Controls() {
           className={styles.button}
           onClick={undo}
           disabled={!playing || !canUndo}
-          aria-label="Undo"
+          aria-label={undoCapped ? 'Undo, limit reached — make a move to undo further' : 'Undo'}
         >
           <UndoIcon />
           <span>Undo</span>
@@ -71,15 +77,17 @@ export function Controls() {
             <span>Auto</span>
           </button>
         )}
-        <button
-          className={styles.button}
-          onClick={hint}
-          disabled={!playing}
-          aria-label={hintStyle === 'reveal-cell' ? 'Hint: reveal a cell' : 'Hint: check entries'}
-        >
-          <HintIcon />
-          <span>Hint</span>
-        </button>
+        {showHintButton && (
+          <button
+            className={styles.button}
+            onClick={hint}
+            disabled={!playing}
+            aria-label={hintStyle === 'reveal-cell' ? 'Hint: reveal a cell' : 'Hint: check entries'}
+          >
+            <HintIcon />
+            <span>Hint</span>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ export function App() {
   const status = useStore((s) => s.game.status);
   const openSheet = useStore((s) => s.openSheet);
   const winDismissed = useStore((s) => s.game.winDismissed);
+  const padLayout = useStore((s) => s.settings.padLayout);
   const setOpenSheet = useStore((s) => s.setOpenSheet);
 
   useTheme();
@@ -29,7 +30,7 @@ export function App() {
   const showWin = status === 'won' && !winDismissed && openSheet === 'none';
 
   return (
-    <div className={styles.app}>
+    <div className={styles.app} data-pad={padLayout}>
       <TopBar />
       <main className={styles.main}>
         <Board />

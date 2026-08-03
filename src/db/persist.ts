@@ -69,6 +69,8 @@ export function startPersistence(store: StoreApi): () => void {
       game.mistakes !== prevGame.mistakes ||
       game.hintsUsed !== prevGame.hintsUsed ||
       game.noteMode !== prevGame.noteMode ||
+      game.actionStats !== prevGame.actionStats ||
+      game.undoStreak !== prevGame.undoStreak ||
       game.winDismissed !== prevGame.winDismissed;
     const otherChange = state.settings !== prev.settings || state.stats !== prev.stats;
     const timerDue =

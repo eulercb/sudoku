@@ -10,10 +10,15 @@ export function NumberPad() {
   const removeCompleted = useStore((s) => s.settings.removeCompletedDigits);
   const noteMode = useStore((s) => s.game.noteMode);
   const playing = useStore((s) => s.game.status === 'playing');
+  const grid = useStore((s) => s.settings.padLayout === 'grid');
   const counts = useDigitCounts();
 
   return (
-    <div className={styles.pad} role="toolbar" aria-label="Number pad">
+    <div
+      className={`${styles.pad} ${grid ? styles.grid : ''}`}
+      role="toolbar"
+      aria-label="Number pad"
+    >
       {DIGITS.map((d) => {
         const remaining = 9 - counts[d]!;
         const done = remaining <= 0;

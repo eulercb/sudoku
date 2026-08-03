@@ -19,6 +19,20 @@ vi.mock('../../src/puzzles', () => ({
 
 const s = () => useStore.getState();
 
+/** Fill every empty cell with its solution digit, winning the fixture. */
+const solveFixture = () => {
+  const solution = fixtureSolution();
+  const givens = fixtureGivens();
+  act(() => {
+    for (let i = 0; i < 81; i++) {
+      if (givens[i] === 0) {
+        s().selectCell(i);
+        s().applyDigit(solution[i]! as Digit);
+      }
+    }
+  });
+};
+
 beforeEach(() => {
   act(() => {
     s().hydrate({});
@@ -129,20 +143,100 @@ describe('App', () => {
     expect(s().settings.showTimer).toBe(false);
   });
 
+  it('folds the hint style away when the hint button is hidden', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+    expect(screen.getByRole('radio', { name: /reveal a cell/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('switch', { name: /show hint button/i }));
+    expect(s().settings.showHintButton).toBe(false);
+    expect(screen.queryByRole('radio', { name: /reveal a cell/i })).not.toBeInTheDocument();
+  });
+
+  it('sets the undo limit from the settings sheet', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+    expect(s().settings.undoLimit).toBe(0);
+    fireEvent.click(screen.getByRole('radio', { name: '3' }));
+    expect(s().settings.undoLimit).toBe(3);
+  });
+
   it('shows the win dialog when the game is won', () => {
     act(() => s().newGame('easy'));
     render(<App />);
-    const solution = fixtureSolution();
-    const givens = fixtureGivens();
-    act(() => {
-      for (let i = 0; i < 81; i++) {
-        if (givens[i] === 0) {
-          s().selectCell(i);
-          s().applyDigit(solution[i]! as Digit);
-        }
-      }
-    });
+    solveFixture();
     expect(screen.getByRole('alertdialog', { name: /solved/i })).toBeInTheDocument();
     expect(screen.getByText(/play again/i)).toBeInTheDocument();
+  });
+
+  it('reports the solve breakdown on the win dialog', () => {
+    act(() => s().newGame('easy'));
+    render(<App />);
+    act(() => {
+      const i = fixtureGivens().indexOf(0);
+      s().selectCell(i);
+      s().applyDigit(((fixtureSolution()[i]! % 9) + 1) as Digit); // wrong
+      s().undo();
+      s().fillNotes();
+    });
+    solveFixture();
+
+    const breakdown = screen.getByRole('alertdialog').querySelector('dl')!;
+    const read = (label: string) =>
+      Array.from(breakdown.querySelectorAll('div'))
+        .find((row) => row.querySelector('dt')?.textContent === label)
+        ?.querySelector('dd')?.textContent;
+
+    expect(read('Mistakes')).toBe('1');
+    expect(read('Undos')).toBe('1');
+    expect(read('Auto')).toBe('1');
+    expect(read('Hints')).toBe('0');
+    // Unused assists stay off the card.
+    expect(read('Checks')).toBeUndefined();
+  });
+
+  it('hides the hint button when the setting is off', () => {
+    act(() => s().newGame('easy'));
+    render(<App />);
+    expect(screen.getByRole('button', { name: /hint/i })).toBeInTheDocument();
+    act(() => s().setSetting('showHintButton', false));
+    expect(screen.queryByRole('button', { name: /hint/i })).not.toBeInTheDocument();
+  });
+
+  it('switches the number pad between one row and a 3×3 block', () => {
+    act(() => s().newGame('easy'));
+    const { container } = render(<App />);
+    const pad = () => screen.getByRole('toolbar', { name: /number pad/i });
+    expect(pad().className).not.toMatch(/grid/);
+
+    act(() => s().setSetting('padLayout', 'grid'));
+    expect(pad().className).toMatch(/grid/);
+    // The board reads the layout to budget its own height.
+    expect(container.querySelector('[data-pad="grid"]')).toBeInTheDocument();
+  });
+
+  it('disables undo once the configured limit is reached', () => {
+    act(() => {
+      s().newGame('easy');
+      s().setSetting('undoLimit', 3);
+      const empties = fixtureGivens().flatMap((v, i) => (v === 0 ? [i] : []));
+      for (const i of empties.slice(0, 5)) {
+        s().selectCell(i);
+        s().applyDigit(fixtureSolution()[i]! as Digit);
+      }
+    });
+    render(<App />);
+
+    const undo = () => screen.getByRole('button', { name: /undo/i });
+    for (let n = 0; n < 3; n++) {
+      expect(undo()).toBeEnabled();
+      fireEvent.click(undo());
+    }
+    expect(undo()).toBeDisabled();
+    expect(undo()).toHaveAccessibleName(/limit reached/i);
+    // The history is intact — two commands are still waiting.
+    expect(s().game.past).toHaveLength(2);
   });
 });

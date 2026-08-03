@@ -1,3 +1,5 @@
+import type { ActionStats } from '../game/actionLog';
+import { emptyActionStats, hydrateActionStats } from '../game/actionLog';
 import type { CellSnapshot, Command } from '../game/commands';
 import type { CellsState, CellValue, Digit, Tier } from '../game/types';
 import { TIERS } from '../game/types';
@@ -30,6 +32,14 @@ export interface GameState {
   lastTickAt: number | null;
   mistakes: number;
   hintsUsed: number;
+  /**
+   * Net undo depth below the furthest point reached: +1 per undo, −1 per redo,
+   * back to 0 on any new move. `settings.undoLimit` caps it; the history stays
+   * whole either way.
+   */
+  undoStreak: number;
+  /** Everything the player did this game, for the post-game report. */
+  actionStats: ActionStats;
   status: GameStatus;
   /** Cells flagged by an explicit "check" action; cleared on next edit. */
   checkFlagged: number[];
@@ -37,6 +47,14 @@ export interface GameState {
 }
 
 export const HISTORY_LIMIT = 500;
+
+/**
+ * Is another undo available? `undoLimit` of 0 means unlimited; any other value
+ * caps how far below the furthest point the player may step before making a
+ * move. Nothing is dropped from `past` either way.
+ */
+export const canUndo = (game: GameState, undoLimit: number): boolean =>
+  game.past.length > 0 && (undoLimit === 0 || game.undoStreak < undoLimit);
 
 const EMPTY_BOARD: CellValue[] = new Array<CellValue>(81).fill(0);
 
@@ -61,6 +79,8 @@ export const emptyGame = (): GameState => ({
   lastTickAt: null,
   mistakes: 0,
   hintsUsed: 0,
+  undoStreak: 0,
+  actionStats: emptyActionStats(),
   status: 'idle',
   checkFlagged: [],
   winDismissed: false,
@@ -164,6 +184,12 @@ export function fromPersistedGame(persisted: unknown): GameState | null {
     future: mergeLegacyCenterInCommands(p.future),
     // The retired 'center' submode lands on the one pencil mode that is left.
     noteMode: p.noteMode === 'off' ? 'off' : 'corner',
+    undoStreak:
+      typeof p.undoStreak === 'number' && Number.isFinite(p.undoStreak) && p.undoStreak > 0
+        ? Math.floor(p.undoStreak)
+        : 0,
+    // Saves written before action tracking simply start their log here.
+    actionStats: hydrateActionStats(p.actionStats),
     winDismissed: p.winDismissed === true,
     selection: [],
     armedDigit: null,

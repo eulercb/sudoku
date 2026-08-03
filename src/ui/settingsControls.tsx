@@ -40,7 +40,7 @@ export function ToggleRow({ label, hint, checked, onChange }: ToggleRowProps) {
   );
 }
 
-interface ChoiceRowProps<T extends string> {
+interface ChoiceRowProps<T extends string | number> {
   label: string;
   hint?: string;
   value: T;
@@ -48,7 +48,7 @@ interface ChoiceRowProps<T extends string> {
   onChange: (value: T) => void;
 }
 
-export function ChoiceRow<T extends string>({
+export function ChoiceRow<T extends string | number>({
   label,
   hint,
   value,

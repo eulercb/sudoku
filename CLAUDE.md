@@ -35,8 +35,9 @@ src/
 │   ├── candidates.ts  computeCandidates(values) from peers
 │   ├── checks.ts      findConflicts / findMistakes / isSolved / digitCounts
 │   ├── commands.ts    patch-based Command + PatchBuilder + apply/revert (undo/redo)
-│   └── actions.ts     command builders: placeValue, toggleMark, eraseCells,
-│                      fillAllCandidates, clearAllNotes, clearBoard, revealCell
+│   ├── actions.ts     command builders: placeValue, toggleMark, eraseCells,
+│   │                  fillAllCandidates, clearAllNotes, clearBoard, revealCell
+│   └── actionLog.ts   per-game record of every action + summarizeActions()
 ├── store/      Zustand: ONE store, sliced state {game, settings, stats} + flat actions
 │   ├── index.ts        all actions; commit() = history push + mistakes + win + haptics
 │   ├── gameSlice.ts    GameState shape + (de)hydration (transient fields dropped)
@@ -81,6 +82,16 @@ tests/
 - **Solution string is the oracle**: mistakes/hints/win all compare against
   the stored solution. Rule conflicts (duplicates) are computed separately
   and are a display concern.
+- **Every action is logged** (`game.actionStats`, built in `game/actionLog.ts`)
+  so the win dialog can report the solve honestly. New player-facing actions
+  must pass a `CommitMeta.action` (command-backed) or call `logAction()`. The
+  timeline is capped; the counters beside it are accumulated on write and stay
+  exact. Wrong entries accrue regardless of `mistakeChecking` — they are only
+  ever shown after the win, so nothing leaks the oracle mid-game.
+- **`settings.undoLimit` caps consecutive undos, never the history.** The
+  streak (`game.undoStreak`) rises on undo, falls on redo, and resets on any
+  new command; 0 means unlimited. `canUndo(game, limit)` is the one predicate
+  the store and the UI share.
 - **Timer never counts hidden/paused time** (`useTimer` deltas, visibility-
   aware). Persisted mid-game games resume as `paused`.
 - **Autosave**: every meaningful change debounced to IndexedDB; timer-only

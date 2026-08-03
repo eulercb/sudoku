@@ -4,7 +4,7 @@ import type { KeyboardEvent } from 'react';
  * Standard radiogroup arrow-key behavior: Left/Up previous, Right/Down next.
  * Focus follows the checked radio (which alone is tabbable).
  */
-export function radioGroupKeyDown<T extends string>(
+export function radioGroupKeyDown<T extends string | number>(
   e: KeyboardEvent<HTMLElement>,
   values: readonly T[],
   current: T,

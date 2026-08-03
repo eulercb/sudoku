@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { summarizeActions } from '../../src/game/actionLog';
 import { PEERS } from '../../src/game/board';
 import type { Digit } from '../../src/game/types';
 import { useStore } from '../../src/store';
@@ -351,6 +352,168 @@ describe('winning', () => {
     s().selectCell(last);
     s().applyDigit(wrongDigitFor(last));
     expect(s().game.status).toBe('playing');
+  });
+});
+
+describe('undo limit', () => {
+  /** Fill n distinct empty cells so there are n commands to walk back. */
+  const makeMoves = (n: number) => {
+    const givens = fixtureGivens();
+    const solution = fixtureSolution();
+    const empties = givens.flatMap((v, i) => (v === 0 ? [i] : []));
+    for (const i of empties.slice(0, n)) {
+      s().selectCell(i);
+      s().applyDigit(solution[i]! as Digit);
+    }
+    return empties.slice(0, n);
+  };
+
+  it('is unlimited by default', () => {
+    makeMoves(5);
+    for (let i = 0; i < 5; i++) s().undo();
+    expect(s().game.past).toHaveLength(0);
+    expect(s().game.future).toHaveLength(5);
+  });
+
+  it('caps consecutive undos without touching the history', () => {
+    s().setSetting('undoLimit', 3);
+    const cells = makeMoves(5);
+    for (let i = 0; i < 5; i++) s().undo();
+
+    // Three undone, the rest refused — but every command is still there.
+    expect(s().game.future).toHaveLength(3);
+    expect(s().game.past).toHaveLength(2);
+    expect(s().game.cells.values[cells[1]!]).not.toBe(0);
+  });
+
+  it('gives the allowance back after a new move', () => {
+    s().setSetting('undoLimit', 3);
+    makeMoves(5);
+    for (let i = 0; i < 4; i++) s().undo();
+    expect(s().game.undoStreak).toBe(3);
+
+    makeMoves(1); // a fresh move resets the streak
+    expect(s().game.undoStreak).toBe(0);
+    s().undo();
+    expect(s().game.undoStreak).toBe(1);
+  });
+
+  it('redo repays the allowance rather than granting a free step back', () => {
+    s().setSetting('undoLimit', 3);
+    makeMoves(5);
+    for (let i = 0; i < 3; i++) s().undo();
+    const cappedPast = s().game.past.length;
+
+    s().redo();
+    expect(s().game.undoStreak).toBe(2);
+    s().undo();
+    // Back exactly where the cap left us — no creeping past it.
+    expect(s().game.past).toHaveLength(cappedPast);
+    s().undo();
+    expect(s().game.past).toHaveLength(cappedPast);
+  });
+
+  it('lowering the limit mid-game applies immediately', () => {
+    makeMoves(5);
+    s().undo();
+    s().undo();
+    s().setSetting('undoLimit', 3);
+    s().undo();
+    expect(s().game.undoStreak).toBe(3);
+    s().undo();
+    expect(s().game.undoStreak).toBe(3);
+  });
+});
+
+describe('action tracking', () => {
+  const summary = () => summarizeActions(s().game.actionStats);
+
+  it('counts every kind of action taken', () => {
+    const i = firstEmpty();
+    const d = fixtureSolution()[i]! as Digit;
+    const other = fixtureGivens().indexOf(0, i + 1);
+
+    s().selectCell(i);
+    s().applyDigit(wrongDigitFor(i)); // a wrong placement
+    s().applyDigit(d); // corrected
+    s().undo();
+    s().redo();
+    s().fillNotes();
+    s().clearNotes();
+    s().togglePencil();
+    s().selectCell(other); // marks only land in cells without a value
+    s().applyDigit(5); // a pencil mark
+    s().togglePencil();
+    s().checkNow();
+    s().erase();
+    s().pause();
+    s().resume();
+
+    expect(summary()).toMatchObject({
+      mistakes: 1,
+      undos: 1,
+      redos: 1,
+      autoNotes: 1,
+      clearedNotes: 1,
+      noteEdits: 1,
+      pencilToggles: 2,
+      checks: 1,
+      erases: 1,
+      pauses: 1,
+    });
+    // Two placements plus the eleven single actions above.
+    expect(summary().total).toBe(13);
+  });
+
+  it('logs actions against the game clock, not the wall clock', () => {
+    advance(4000);
+    const i = firstEmpty();
+    s().selectCell(i);
+    s().applyDigit(fixtureSolution()[i]! as Digit);
+    const [entry] = s().game.actionStats.log;
+    expect(entry).toMatchObject({ type: 'place', at: 4000, cells: 1, wrong: 0 });
+  });
+
+  it('counts wrong entries even when mistake warnings are off', () => {
+    s().hydrate({ settings: { mistakeChecking: 'off' } });
+    s().newGame('easy');
+    const i = firstEmpty();
+    s().selectCell(i);
+    s().applyDigit(wrongDigitFor(i));
+    // Nothing is surfaced mid-game...
+    expect(s().game.mistakes).toBe(0);
+    // ...but the post-game report is still honest.
+    expect(summary().mistakes).toBe(1);
+  });
+
+  it('counts a revealed hint once, as a filled cell', () => {
+    const i = firstEmpty();
+    s().selectCell(i);
+    s().hint();
+    expect(summary()).toMatchObject({ hints: 1, numbers: 1 });
+  });
+
+  it('a check-entries hint is one action, not a hint plus a check', () => {
+    s().setSetting('hintStyle', 'check-entries');
+    s().hint();
+    expect(summary()).toMatchObject({ hints: 1, checks: 0 });
+    expect(s().game.hintsUsed).toBe(1);
+  });
+
+  it('a new game and a restart each start a fresh record', () => {
+    const i = firstEmpty();
+    s().selectCell(i);
+    s().applyDigit(fixtureSolution()[i]! as Digit);
+    expect(summary().total).toBe(1);
+
+    s().restartPuzzle();
+    expect(summary().total).toBe(0);
+    expect(s().game.undoStreak).toBe(0);
+
+    s().selectCell(i);
+    s().applyDigit(fixtureSolution()[i]! as Digit);
+    s().newGame('easy');
+    expect(summary().total).toBe(0);
   });
 });
 

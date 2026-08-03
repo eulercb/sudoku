@@ -5,6 +5,13 @@
   padding-top: env(safe-area-inset-top);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  /* How much of the viewport the board may claim; the Board reads it. */
+  --board-cap: 60dvh;
+}
+
+/* A 3×3 pad is two key-rows taller, so short screens give the board less. */
+.app[data-pad='grid'] {
+  --board-cap: 52dvh;
 }
 
 .main {
